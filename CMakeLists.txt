@@ -5,6 +5,7 @@ project(kernels LANGUAGES C CXX Fortran CUDA)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(THRUST_CPP_DIALECT ${CMAKE_CXX_STANDARD})
 
 include(CTest)
 
@@ -12,6 +13,8 @@ find_package(Catch2 3 REQUIRED)
 
 find_package(Thrust REQUIRED CONFIG)
 thrust_create_target(Thrust)
+
+
 
 # helper function for defining tests
 function(add_unit_test t label)
