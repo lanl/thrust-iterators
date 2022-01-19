@@ -15,7 +15,6 @@ find_package(Thrust REQUIRED CONFIG)
 thrust_create_target(Thrust)
 
 
-
 # helper function for defining tests
 function(add_unit_test t label)
   if (BUILD_TESTING)
