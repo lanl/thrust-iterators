@@ -43,8 +43,9 @@ void window_test_cuda<T>::transform(T* v, int n)
     thrust::device_vector<T> u(v, v + n);
 
     int window_size = 2;
-    thrust::for_each(make_window(u.begin(), window_size),
-                     make_window(u.end(), window_size),
+    auto && [first, last] = make_window_pair(u, window_size);
+    thrust::for_each(first,
+                     last,
                      ff(1.0, 2.0));
     thrust::copy(u.begin(), u.end(), v);
 }

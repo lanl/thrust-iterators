@@ -6,6 +6,8 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 
+#include "md_device_vector.hpp"
+
 // For now these are wrappers around the device kernels that simply handle data transfer.
 // The current assumption is that all data coming in is host data.
 
@@ -44,6 +46,12 @@ void cd_stencil_coeffs_1d_cuda<T>::offdiag(const int& ifirst0,
         stencil, stencil + 3 * (1 + ilast0 + sgcw - (ifirst0 - sgcw)));
     thrust::device_vector<T> d_b0(b0, b0 + 1 + bihi0 + 1 - bilo0);
     const T d0 = -beta / (*dx * *dx);
+
+    // what about something like md_device_vec<T>(stencil, bounds0, bounds1)
+    // md_device_vec(stencil, bounds{ifirst0-sgcw,ilast0+sgcw}, ibounds(0,2))
+    // md_device_vec(b0, bounds(bilo0,bihi0+1))
+    auto v = make_md_vec(stencil, bounds(ifirst0 - sgcw, ilast0 + sgcw), bounds(0, 2));
+    auto b = make_md_vec(b0, bounds(bilo0, bihi0 + 1));
 
     // form zip iterator to access b0 [ifirst0:ilast0] and b0[ifirst0+1:ilast0+1]
     auto b0_first = d_b0.begin() + ifirst0 - bilo0;
@@ -187,8 +195,10 @@ struct poisson_diag_f {
 };
 
 template <typename T>
-void cd_stencil_coeffs_1d_cuda<T>::poisson_diag(
-    const int& ifirst0, const int& ilast0, const int& sgcw, T* stencil)
+void cd_stencil_coeffs_1d_cuda<T>::poisson_diag(const int& ifirst0,
+                                                const int& ilast0,
+                                                const int& sgcw,
+                                                T* stencil)
 {
     thrust::device_vector<T> d_stencil(
         stencil, stencil + 3 * (1 + ilast0 + sgcw - (ifirst0 - sgcw)));
@@ -200,7 +210,6 @@ void cd_stencil_coeffs_1d_cuda<T>::poisson_diag(
     // copy data back out
     thrust::copy(d_stencil.begin(), d_stencil.end(), stencil);
 }
-
 
 template struct cd_stencil_coeffs_1d_cuda<double>;
 template struct cd_stencil_coeffs_1d_cuda<float>;

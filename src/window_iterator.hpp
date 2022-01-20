@@ -5,7 +5,8 @@
 #include <thrust/iterator/iterator_facade.h>
 #include <thrust/iterator/iterator_traits.h>
 
-// assumes the window size evenly divides the iterator distance
+// divides an iterator into a number of contigous, non-overlapping windows
+// assumes the window size evenly divides the iterator size
 template <typename Iter>
 struct window_iterator
     : thrust::iterator_facade<window_iterator<Iter>,
@@ -54,4 +55,16 @@ template <typename Iter>
 window_iterator<Iter> make_window(Iter it, int window_size)
 {
     return window_iterator<Iter>(it, window_size);
+}
+
+template <typename Iter>
+struct window_pair {
+    window_iterator<Iter> first;
+    window_iterator<Iter> last;
+};
+
+template <typename C>
+auto make_window_pair(C&& c, int window_size) -> window_pair<decltype(c.begin())>
+{
+    return {make_window(c.begin(), window_size), make_window(c.end(), window_size)};
 }
