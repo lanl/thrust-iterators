@@ -5,29 +5,25 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
+#include <thrust/zip_function.h>
 
 #include "md_device_vector.hpp"
+#include <cassert>
 
 // For now these are wrappers around the device kernels that simply handle data transfer.
 // The current assumption is that all data coming in is host data.
-
 template <typename T>
 using It = typename thrust::device_vector<T>::iterator;
 
 template <typename T>
 struct offdiag_f {
     T d0;
-    It<T> stencil;
 
-    offdiag_f(T d0, It<T> stencil) : d0{d0}, stencil{stencil} {}
-
-    template <typename Tuple>
-    __host__ __device__ void operator()(Tuple t)
+    template <typename St, typename B>
+    __host__ __device__ void operator()(St st, B b)
     {
-        int i = thrust::get<0>(t);
-
-        stencil[3 * i + 1] = d0 * thrust::get<1>(t);
-        stencil[3 * i + 2] = d0 * thrust::get<2>(t);
+        st[1] = d0 * b[0];
+        st[2] = d0 * b[1];
     }
 };
 
@@ -42,42 +38,30 @@ void cd_stencil_coeffs_1d_cuda<T>::offdiag(const int& ifirst0,
                                            const int& sgcw,
                                            T* stencil)
 {
-    thrust::device_vector<T> d_stencil(
-        stencil, stencil + 3 * (1 + ilast0 + sgcw - (ifirst0 - sgcw)));
-    thrust::device_vector<T> d_b0(b0, b0 + 1 + bihi0 + 1 - bilo0);
-    const T d0 = -beta / (*dx * *dx);
-
-    // what about something like md_device_vec<T>(stencil, bounds0, bounds1)
-    // md_device_vec(stencil, bounds{ifirst0-sgcw,ilast0+sgcw}, ibounds(0,2))
-    // md_device_vec(b0, bounds(bilo0,bihi0+1))
-    auto v = make_md_vec(stencil, bounds(ifirst0 - sgcw, ilast0 + sgcw), bounds(0, 2));
+    auto st = make_md_vec(stencil, bounds(ifirst0 - sgcw, ilast0 + sgcw), bounds(0, 2));
     auto b = make_md_vec(b0, bounds(bilo0, bihi0 + 1));
+    const T d0 = -beta / (*dx * *dx);
+    //
+    auto&& [col_first, col_last] = st.column(std::array{ifirst0}, std::array{ilast0});
+    auto&& [b_first, b_last] = b.sliding(2, std::array{ifirst0}, std::array{ilast0});
 
-    // form zip iterator to access b0 [ifirst0:ilast0] and b0[ifirst0+1:ilast0+1]
-    auto b0_first = d_b0.begin() + ifirst0 - bilo0;
-    int n = ilast0 - ifirst0 + 1;
-
-    auto first = thrust::make_zip_iterator(
-        thrust::make_tuple(thrust::counting_iterator(0), b0_first, b0_first + 1));
-
-    thrust::for_each_n(first, n, offdiag_f<T>(d0, d_stencil.begin() + 3 * sgcw));
+    thrust::for_each(thrust::make_zip_iterator(thrust::make_tuple(col_first, b_first)),
+                     thrust::make_zip_iterator(thrust::make_tuple(col_last, b_last)),
+                     thrust::make_zip_function(offdiag_f<T>{d0}));
 
     // copy data back out
-    thrust::copy(d_stencil.begin(), d_stencil.end(), stencil);
+    thrust::copy(st.begin(), st.end(), stencil);
 }
 
 template <typename T>
 struct poisson_offdiag_f {
     T d0;
-    It<T> stencil;
 
-    poisson_offdiag_f(T d0, It<T> stencil) : d0{d0}, stencil{stencil} {}
-
-    // template <typename Tuple>
-    __host__ __device__ void operator()(int i)
+    template <typename St>
+    __host__ __device__ void operator()(St st)
     {
-        stencil[3 * i + 1] = d0;
-        stencil[3 * i + 2] = d0;
+        st[1] = d0;
+        st[2] = d0;
     }
 };
 
@@ -89,16 +73,14 @@ void cd_stencil_coeffs_1d_cuda<T>::poisson_offdiag(const int& ifirst0,
                                                    const int& sgcw,
                                                    T* stencil)
 {
-    thrust::device_vector<T> d_stencil(
-        stencil, stencil + 3 * (1 + ilast0 + sgcw - (ifirst0 - sgcw)));
+    auto st = make_md_vec(stencil, bounds(ifirst0 - sgcw, ilast0 + sgcw), bounds(0, 2));
     const T d0 = -beta / (*dx * *dx);
 
-    thrust::for_each_n(thrust::counting_iterator(0),
-                       ilast0 - ifirst0 + 1,
-                       poisson_offdiag_f<T>(d0, d_stencil.begin() + 3 * sgcw));
+    auto&& [first, last] = st.column(std::array{ifirst0}, std::array{ilast0});
+    thrust::for_each(first, last, poisson_offdiag_f<T>{d0});
 
     // copy data back out
-    thrust::copy(d_stencil.begin(), d_stencil.end(), stencil);
+    thrust::copy(st.begin(), st.end(), stencil);
 }
 
 //
@@ -108,16 +90,11 @@ void cd_stencil_coeffs_1d_cuda<T>::poisson_offdiag(const int& ifirst0,
 template <typename T>
 struct v1diag_f {
     T alpha;
-    It<T> stencil;
 
-    v1diag_f(T alpha, It<T> stencil) : alpha{alpha}, stencil{stencil} {}
-
-    template <typename Tuple>
-    __host__ __device__ void operator()(Tuple t)
+    template <typename St>
+    __host__ __device__ void operator()(St st, const T& a)
     {
-        int i = thrust::get<0>(t);
-        stencil[3 * i] =
-            -(stencil[3 * i + 1] + stencil[3 * i + 2]) + alpha * thrust::get<1>(t);
+        st[0] = -(st[1] + st[2]) + alpha * a;
     }
 };
 
@@ -131,21 +108,18 @@ void cd_stencil_coeffs_1d_cuda<T>::v1diag(const int& ifirst0,
                                           const int& sgcw,
                                           T* stencil)
 {
-    thrust::device_vector<T> d_stencil(
-        stencil, stencil + 3 * (1 + ilast0 + sgcw - (ifirst0 - sgcw)));
-    thrust::device_vector<T> d_a(a, a + 1 + aihi0 - ailo0);
+    auto st = make_md_vec(stencil, bounds(ifirst0 - sgcw, ilast0 + sgcw), bounds(0, 2));
+    auto c = make_md_vec(a, bounds(ailo0, aihi0));
 
-    // form zip iterator to access b0 [ifirst0:ilast0] and b0[ifirst0+1:ilast0+1]
-    auto a_first = d_a.begin() + ifirst0 - ailo0;
-    int n = ilast0 - ifirst0 + 1;
+    auto [col_first, col_last] = st.column(std::array{ifirst0}, std::array{ilast0});
+    auto [a_first, a_last] = c.offset(std::array{ifirst0}, std::array{ilast0});
 
-    auto first = thrust::make_zip_iterator(
-        thrust::make_tuple(thrust::counting_iterator(0), a_first));
-
-    thrust::for_each_n(first, n, v1diag_f<T>(alpha, d_stencil.begin() + 3 * sgcw));
+    thrust::for_each(thrust::make_zip_iterator(thrust::make_tuple(col_first, a_first)),
+                     thrust::make_zip_iterator(thrust::make_tuple(col_last, a_last)),
+                     thrust::make_zip_function(v1diag_f<T>{alpha}));
 
     // copy data back out
-    thrust::copy(d_stencil.begin(), d_stencil.end(), stencil);
+    thrust::copy(st.begin(), st.end(), stencil);
 }
 
 //
@@ -154,13 +128,11 @@ void cd_stencil_coeffs_1d_cuda<T>::v1diag(const int& ifirst0,
 template <typename T>
 struct v2diag_f {
     T alpha;
-    It<T> stencil;
 
-    v2diag_f(T alpha, It<T> stencil) : alpha{alpha}, stencil{stencil} {}
-
-    __host__ __device__ void operator()(int i)
+    template <typename St>
+    __host__ __device__ void operator()(St st)
     {
-        stencil[3 * i] = -(stencil[3 * i + 1] + stencil[3 * i + 2]) + alpha;
+        st[0] = -(st[1] + st[2]) + alpha;
     }
 };
 
@@ -168,15 +140,13 @@ template <typename T>
 void cd_stencil_coeffs_1d_cuda<T>::v2diag(
     const int& ifirst0, const int& ilast0, const T& alpha, const int& sgcw, T* stencil)
 {
-    thrust::device_vector<T> d_stencil(
-        stencil, stencil + 3 * (1 + ilast0 + sgcw - (ifirst0 - sgcw)));
+    auto st = make_md_vec(stencil, bounds(ifirst0 - sgcw, ilast0 + sgcw), bounds(0, 2));
+    auto [first, last] = st.column(std::array{ifirst0}, std::array{ilast0});
 
-    thrust::for_each_n(thrust::counting_iterator(0),
-                       ilast0 - ifirst0 + 1,
-                       v2diag_f<T>(alpha, d_stencil.begin() + 3 * sgcw));
+    thrust::for_each(first, last, v2diag_f<T>{alpha});
 
     // copy data back out
-    thrust::copy(d_stencil.begin(), d_stencil.end(), stencil);
+    thrust::copy(st.begin(), st.end(), stencil);
 }
 
 //
@@ -184,13 +154,10 @@ void cd_stencil_coeffs_1d_cuda<T>::v2diag(
 //
 template <typename T>
 struct poisson_diag_f {
-    It<T> stencil;
-
-    poisson_diag_f(It<T> stencil) : stencil{stencil} {}
-
-    __host__ __device__ void operator()(int i)
+    template <typename St>
+    __host__ __device__ void operator()(St st)
     {
-        stencil[3 * i] = -(stencil[3 * i + 1] + stencil[3 * i + 2]);
+        st[0] = -(st[1] + st[2]);
     }
 };
 
@@ -200,15 +167,12 @@ void cd_stencil_coeffs_1d_cuda<T>::poisson_diag(const int& ifirst0,
                                                 const int& sgcw,
                                                 T* stencil)
 {
-    thrust::device_vector<T> d_stencil(
-        stencil, stencil + 3 * (1 + ilast0 + sgcw - (ifirst0 - sgcw)));
-
-    thrust::for_each_n(thrust::counting_iterator(0),
-                       ilast0 - ifirst0 + 1,
-                       poisson_diag_f<T>(d_stencil.begin() + 3 * sgcw));
+    auto st = make_md_vec(stencil, bounds(ifirst0 - sgcw, ilast0 + sgcw), bounds(0, 2));
+    auto [first, last] = st.column(std::array{ifirst0}, std::array{ilast0});
+    thrust::for_each(first, last, poisson_diag_f<T>{});
 
     // copy data back out
-    thrust::copy(d_stencil.begin(), d_stencil.end(), stencil);
+    thrust::copy(st.begin(), st.end(), stencil);
 }
 
 template struct cd_stencil_coeffs_1d_cuda<double>;
