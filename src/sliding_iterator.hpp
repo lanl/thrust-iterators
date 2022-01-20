@@ -73,5 +73,5 @@ template <typename C>
 auto make_sliding_pair(C&& c, int window_size) -> sliding_pair<decltype(c.begin())>
 {
     return {make_sliding(c.begin(), window_size),
-            make_sliding(c.end() - window_size, window_size)};
+            make_sliding(c.end() - window_size + 1, window_size)};
 }
