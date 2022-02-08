@@ -1,4 +1,4 @@
-#include "cd_stencil_coeffs_1d_cuda.hpp"
+#include "../cd_stencil_coeffs_1d_cuda.hpp"
 
 #include <thrust/copy.h>
 #include <thrust/device_vector.h>

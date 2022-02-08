@@ -4,7 +4,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/for_each.h>
 
-#include "window_iterator_test.hpp"
+#include "../window_iterator_test.hpp"
 
 template <typename T>
 void window_test_cuda<T>::init(T* v, int n)

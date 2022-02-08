@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19)
 
-project(kernels LANGUAGES C CXX Fortran CUDA)
+project(kernels LANGUAGES C CXX Fortran)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -12,8 +12,12 @@ include(CTest)
 find_package(Catch2 3 REQUIRED)
 
 find_package(Thrust REQUIRED CONFIG)
-thrust_create_target(Thrust)
+thrust_create_target(Thrust FROM_OPTIONS)
 
+thrust_is_cuda_system_found(USE_CUDA)
+if (USE_CUDA)
+  enable_language(CUDA)
+endif()
 
 # helper function for defining tests
 function(add_unit_test t label)

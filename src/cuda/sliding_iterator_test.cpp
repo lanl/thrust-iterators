@@ -1,5 +1,5 @@
 #include "sliding_iterator.hpp"
-#include "sliding_iterator_test.hpp"
+#include "../sliding_iterator_test.hpp"
 
 #include <thrust/device_vector.h>
 

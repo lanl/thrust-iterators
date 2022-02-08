@@ -1,5 +1,5 @@
 #include "submatrix_iterator.hpp"
-#include "submatrix_iterator_test.hpp"
+#include "../submatrix_iterator_test.hpp"
 
 #include <cassert>
 #include <thrust/copy.h>
