@@ -109,6 +109,8 @@ public:
         }
     }
 
+    __host__ __device__ int stride_dim(int i) const { return stride[i]; }
+
 private:
     friend class thrust::iterator_core_access;
     template <typename, auto>
