@@ -1,10 +1,8 @@
 #pragma once
 
-template <typename T = double>
+template <typename T, auto N, int I>
 struct forward_stencil_test_cuda {
-    static void init(const T*, int);
+    static void init(const T*, const int (&)[N]);
 
-    static void init2D(const T*, int [2]);
-
-    static void transform(const T*, int, int, T*);
+    static void transform(const T*, const int (&)[N], T*);
 };

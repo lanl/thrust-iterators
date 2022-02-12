@@ -99,20 +99,18 @@ private:
 
     __host__ __device__ void advance(diff_t dist)
     {
-        printf("\nadvancing dist %d", dist);
-        print_current();
+        // printf("\nadvancing dist %d", dist);
+        // print_current();
         // need to add correct multiples of the stencil_stride to compensate for dist
-        // causing our stencil to "rollover". Does this correctly handle dist < 0?
-        // This loop assumes that the stride count rolls over on max_stride_distance...
-        // But it also rolls over on a negative base_dist
+        // causing our stencil to "rollover".
         auto base_dist = dist + current_distance;
-        auto iter_dist = dist + (base_dist / max_stride_distance) * stencil_stride;
-        current_distance = base_dist % max_stride_distance;
-        printf(
-            "base/iter/current\t [%d, %d, %d]\n", base_dist, iter_dist, current_distance);
+        int backwards = base_dist < 0;
+        auto iter_dist = dist + (base_dist / max_stride_distance) * stencil_stride -
+                         backwards * stencil_stride;
+        current_distance =
+            backwards * max_stride_distance + base_dist % max_stride_distance;
+
         thrust::advance(first, iter_dist);
-        printf("done advancing");
-        print_current();
     }
 
     template <typename Other>
@@ -121,7 +119,13 @@ private:
     {
         auto iter_dist = thrust::distance(first, other.first);
 
-        return iter_dist;
+        auto n = max_stride_distance - 1;
+        auto m =
+            (iter_dist - n + current_distance - stencil_stride - other.current_distance) /
+            (stencil_stride + n);
+        auto actual_dist = iter_dist - (m + 1) * stencil_stride;
+
+        return actual_dist;
     }
 
     Iter first;
