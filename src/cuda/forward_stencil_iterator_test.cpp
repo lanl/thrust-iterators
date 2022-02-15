@@ -15,7 +15,7 @@ void forward_stencil_test_cuda<T, N, I>::init(const T* v, const int (&dims)[N])
     for (int i = 0; i < N; i++) { u_sz *= i == I ? dims[i] - 1 : dims[i]; }
 
     thrust::device_vector<T> u(v, v + n);
-    auto s = make_forward_stencil(u.begin(), stride, limit);
+    auto s = make_forward_stencil(u.begin(), stride, limit, u_sz);
     auto a = s + 1;
     assert(thrust::distance(s, a) == 1);
     --a;
@@ -25,17 +25,12 @@ void forward_stencil_test_cuda<T, N, I>::init(const T* v, const int (&dims)[N])
     assert(a == s);
     assert(thrust::distance(s, a) == 0);
 
-    printf("\ninit\n");
-    printf("n = %d, limit = %d, stride = %d, u_sz = %d\n", n, limit, stride, u_sz);
     for (int i = 0; i < u_sz; i++) assert(thrust::distance(s, s + i) == i);
     auto ss = s + (u_sz - 1);
     assert(thrust::distance(s, ss) == u_sz - 1);
     ++ss;
 
-    printf("thrust::distance(s, ss) = %ld\n", thrust::distance(s, ss));
     assert(thrust::distance(s, ss) == u_sz);
-    // fails
-    printf("thrust::distance(s, s + u_sz) = %ld\n", thrust::distance(s, s + u_sz));
     assert(thrust::distance(s, s + u_sz) == u_sz);
 
     // go to the edge to test rollover
@@ -78,24 +73,24 @@ template <typename T, auto N, int I>
 void forward_stencil_test_cuda<T, N, I>::transform(const T* v, const int (&dims)[N], T* u)
 {
     auto n = stride_dim<-1, N>(dims);
-    auto limit = stride_dim<I - 1, N>(dims) - 1;
+    int udims[N];
+    for (int i = 0; i < N; i++) udims[i] = i == I ? dims[i] - 1 : dims[i];
+
+    auto limit = stride_dim<I - 1, N>(udims);
     auto stride = stride_dim<I, N>(dims);
-    // compute size of stencil output
-    auto u_sz = 1;
-    for (int i = 0; i < N; i++) { u_sz *= i == I ? dims[i] - 1 : dims[i]; }
+    auto u_sz = stride_dim<-1, N>(udims);
 
-    printf("n = %d, limit = %d, stride = %d, u_sz = %d\n", n, limit, stride, u_sz);
     thrust::device_vector<T> x(v, v + n);
-    thrust::device_vector<T> y(u_sz);
 
-    auto s = make_forward_stencil(x.begin(), stride, limit);
+    auto s = make_forward_stencil(x.begin(), stride, limit, u_sz);
 
-    printf("thrust::distance(s, s + u_sz) = %ld\n", thrust::distance(s, s + u_sz));
     assert(thrust::distance(s, s + u_sz) == u_sz);
-    thrust::transform(s, s + u_sz, y.begin(), gg<T>{});
-    thrust::copy(y.begin(), y.end(), u);
+    thrust::transform(s, s + u_sz, u, gg<T>{});
 }
 
 template struct forward_stencil_test_cuda<double, 1, 0>;
 template struct forward_stencil_test_cuda<double, 2, 0>;
 template struct forward_stencil_test_cuda<double, 2, 1>;
+template struct forward_stencil_test_cuda<double, 3, 0>;
+template struct forward_stencil_test_cuda<double, 3, 1>;
+template struct forward_stencil_test_cuda<double, 3, 2>;

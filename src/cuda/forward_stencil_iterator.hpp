@@ -43,20 +43,23 @@ struct forward_stencil_iterator
 public:
     __host__ __device__ forward_stencil_iterator(Iter first,
                                                  diff_t stencil_stride,
-                                                 diff_t max_stride_distance)
+                                                 diff_t max_stride_distance,
+                                                 diff_t distance_to_last)
         : first{first},
           stencil_stride{stencil_stride},
           max_stride_distance{max_stride_distance},
+          distance_to_last{distance_to_last},
           current_distance{0}
     {
     }
 
     __host__ __device__ void print_current() const
     {
-        printf("\n  current stencil: %d / %d / %d\n",
+        printf("\n  current stencil: %d / %d / %d / %d\n",
                stencil_stride,
                max_stride_distance,
-               current_distance);
+               current_distance,
+               distance_to_last);
     }
 
 private:
@@ -79,9 +82,13 @@ private:
     {
         ++first;
         ++current_distance;
+        --distance_to_last;
         // If we've reached max_stride_distance then we need to increment by stride and
-        // reset our distance
-        int distance_reached = !(max_stride_distance - current_distance);
+        // reset our distance.  If we have reached the "last" position, then we don't
+        // increment further
+        int last_not_reached = !!(distance_to_last);
+        int distance_reached =
+            last_not_reached * !(max_stride_distance - current_distance);
         current_distance -= distance_reached * max_stride_distance;
         first += distance_reached * stencil_stride;
     }
@@ -90,6 +97,7 @@ private:
     {
         --first;
         --current_distance;
+        ++distance_to_last;
         // If current_distance == -1, then we need to decrement by stride and reset the
         // distance to skip over the "bad" point
         int distance_reached = !(1 + current_distance);
@@ -99,16 +107,23 @@ private:
 
     __host__ __device__ void advance(diff_t dist)
     {
-        // printf("\nadvancing dist %d", dist);
-        // print_current();
-        // need to add correct multiples of the stencil_stride to compensate for dist
-        // causing our stencil to "rollover".
+        //  need to add correct multiples of the stencil_stride to compensate for dist
+        //  causing our stencil to "rollover".
+        distance_to_last -= dist;
+
         auto base_dist = dist + current_distance;
         int backwards = base_dist < 0;
+        int at_last = !(distance_to_last);
+
         auto iter_dist = dist + (base_dist / max_stride_distance) * stencil_stride -
-                         backwards * stencil_stride;
-        current_distance =
-            backwards * max_stride_distance + base_dist % max_stride_distance;
+                         backwards * stencil_stride - at_last * (stencil_stride - 1);
+        current_distance = backwards * max_stride_distance +
+                           base_dist % max_stride_distance +
+                           at_last * max_stride_distance;
+        // if (distance_to_last == 0) {
+        //     iter_dist -= (stencil_stride-1);
+        //     current_distance = max_stride_distance;
+        // }
 
         thrust::advance(first, iter_dist);
     }
@@ -117,20 +132,13 @@ private:
     __host__ __device__ diff_t
     distance_to(const forward_stencil_iterator<Other>& other) const
     {
-        auto iter_dist = thrust::distance(first, other.first);
-
-        auto n = max_stride_distance - 1;
-        auto m =
-            (iter_dist - n + current_distance - stencil_stride - other.current_distance) /
-            (stencil_stride + n);
-        auto actual_dist = iter_dist - (m + 1) * stencil_stride;
-
-        return actual_dist;
+        return distance_to_last - other.distance_to_last;
     }
 
     Iter first;
     diff_t stencil_stride;
     diff_t max_stride_distance;
+    diff_t distance_to_last;
     diff_t current_distance;
 };
 
@@ -138,7 +146,8 @@ template <typename Iter>
 forward_stencil_iterator<Iter>
 make_forward_stencil(Iter it,
                      typename thrust::iterator_difference_t<Iter> stencil_stride,
-                     typename thrust::iterator_difference_t<Iter> max_stride_distance)
+                     typename thrust::iterator_difference_t<Iter> max_stride_distance,
+                     typename thrust::iterator_difference_t<Iter> distance_to_last)
 {
-    return {it, stencil_stride, max_stride_distance};
+    return {it, stencil_stride, max_stride_distance, distance_to_last};
 }
