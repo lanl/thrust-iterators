@@ -1,6 +1,9 @@
 #pragma once
 
-#include "matrix_traversal_iterator.hpp"
+#include "matrix_utils.hpp"
+
+template <typename, auto>
+struct matrix_traversal_iterator;
 
 namespace detail
 {

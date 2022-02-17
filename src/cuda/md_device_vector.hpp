@@ -1,6 +1,7 @@
 #pragma once
 
 #include "sliding_iterator.hpp"
+#include "submatrix_iterator.hpp"
 #include "window_iterator.hpp"
 #include <numeric>
 #include <thrust/device_vector.h>
@@ -14,6 +15,9 @@ struct bounds {
         : first{first}, last{last + inclusive}
     {
     }
+
+    int lb() const { return first; }
+    int ub() const { return last - 1; }
 
     int size() const { return last - first; }
 };
@@ -137,6 +141,64 @@ public:
         return {v.begin() + detail::col_offset(b, c0),
                 v.begin() + detail::col_offset(b, c1) + 1};
     }
+
+    template <typename... Bounds>
+    auto operator()(Bounds&&... bnds)
+    {
+        static_assert(Dim == sizeof...(Bounds));
+
+        int lb[] = {bnds.lb()...};
+        int ub[] = {bnds.ub()...};
+        int sz[Dim];
+
+        for (int i = 0; i < Dim; i++) {
+            lb[i] -= b[i].lb();
+            ub[i] -= b[i].lb();
+            sz[i] = b[i].size();
+        }
+
+        return make_submatrix(begin(), sz, lb, ub);
+    }
+
+    auto stencil(int I)
+    {
+        int dims[Dim];
+        int n[Dim];
+        for (int i = 0; i < Dim; i++) {
+            dims[i] = i == I ? b[i].size() - 1 : b[i].size();
+            n[i] = b[i].size();
+        }
+
+        auto stride = ::stride_dim<Dim>(n, I);
+        auto limit = ::stride_dim<Dim>(dims, I - 1);
+        auto sz = ::stride_dim<Dim>(dims, -1);
+
+        return make_forward_stencil(begin(), stride, limit, sz);
+    }
+
+
+        // The baseline format is c-ordering of 0, 1, 2
+    template <auto... I>
+    auto transpose() const
+    {
+        int n[Dim];
+        for (int i = 0; i < Dim; i++) n[i] = b[i].size();
+        return make_transpose<I...>(begin(), n);
+    }
+
+    auto istencil() {
+        return stencil(Dim-1);
+    }
+
+    auto jstencil() {
+        return stencil(Dim-2);
+    }
+
+
+    // permutes from 0, 1 -> 1, 0
+    auto ij() const { return this->transpose<1, 0>(); }
+
+    auto size() const { return v.size(); }
 
     auto begin() { return v.begin(); }
     auto begin() const { return v.begin(); }

@@ -62,6 +62,8 @@ public:
                distance_to_last);
     }
 
+    __host__ __device__ auto size() const { return distance_to_last; }
+
 private:
     friend class thrust::iterator_core_access;
     template <typename>

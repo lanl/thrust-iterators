@@ -11,7 +11,11 @@ if (USE_CUDA)
     LANGUAGE CUDA)
 endif()
 
-add_library(cuda_kernels cuda/cd_stencil_coeffs_1d_cuda.cpp)
+add_library(cuda_kernels
+  cuda/cd_stencil_coeffs_1d_cuda.cpp
+  cuda/cdf_2d_cuda.cpp
+  cuda/cd_apply_2d_cuda.cpp
+  cuda/cdf_3d_cuda.cpp)
 target_link_libraries(cuda_kernels Thrust)
 
 add_library(cuda_it
@@ -30,3 +34,6 @@ add_unit_test(transpose_iterator "iterator" cuda_it random)
 add_unit_test(forward_stencil_iterator "iterator" cuda_it random)
 
 add_unit_test(cd_stencil_coeffs_1d "coeffs" f77_kernels cuda_kernels random)
+add_unit_test(cd_flux_2d "flux2d" f77_kernels cuda_kernels random)
+add_unit_test(cd_apply_2d "apply2d" f77_kernels cuda_kernels random)
+add_unit_test(cd_flux_3d "flux3d" f77_kernels cuda_kernels random)

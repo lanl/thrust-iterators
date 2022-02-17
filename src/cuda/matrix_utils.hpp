@@ -1,6 +1,31 @@
 #pragma once
 
-#include <type_traits>
+#include <thrust/device_vector.h>
+#include <utility>
+
+template <auto N>
+__host__ __device__ void stride_from_size(const int (&size)[N], int (&stride)[N])
+{
+    stride[N - 1] = 1;
+    for (int i = N - 2; i >= 0; i--) stride[i] = stride[i + 1] * size[i + 1];
+}
+
+// compute the stride associated with dimension I
+template <auto I, auto N, typename T>
+__host__ __device__ T stride_dim(const T (&sz)[N])
+{
+    T t{1};
+    for (int i = I + 1; i < N; i++) t *= sz[i];
+    return t;
+}
+
+template <auto N, typename T>
+__host__ __device__ T stride_dim(const T (&sz)[N], int I)
+{
+    T t{1};
+    for (int i = I + 1; i < N; i++) t *= sz[i];
+    return t;
+}
 
 // general utility for "raveling" an N-D coordinate into a single index assuming zero
 // based offset
@@ -45,22 +70,3 @@ __host__ __device__ void unravel(const int (&size)[N], int index, int (&coord)[N
         coord[N - 1] += f * size[N - 1];
     }
 }
-
-namespace detail
-{
-
-template <typename T, typename U, auto... I>
-__host__ __device__ bool equal_(std::index_sequence<I...>, T&& x, U&& y)
-{
-    {
-        return ((x[I] == y[I]) && ...);
-    }
-}
-
-template <typename T, auto N>
-__host__ __device__ bool equal(const T (&x)[N], const T (&y)[N])
-{
-    return equal_(std::make_index_sequence<N>{}, x, y);
-}
-
-} // namespace detail
