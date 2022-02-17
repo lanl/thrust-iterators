@@ -176,8 +176,7 @@ public:
         return make_forward_stencil(begin(), stride, limit, sz);
     }
 
-
-        // The baseline format is c-ordering of 0, 1, 2
+    // The baseline format is c-ordering of 0, 1, 2
     template <auto... I>
     auto transpose() const
     {
@@ -186,17 +185,14 @@ public:
         return make_transpose<I...>(begin(), n);
     }
 
-    auto istencil() {
-        return stencil(Dim-1);
-    }
-
-    auto jstencil() {
-        return stencil(Dim-2);
-    }
-
+    auto istencil() { return stencil(Dim - 1); }
+    auto jstencil() { return stencil(Dim - 2); }
+    auto kstencil() { return stencil(Dim - 3); }
 
     // permutes from 0, 1 -> 1, 0
     auto ij() const { return this->transpose<1, 0>(); }
+    auto ikj() const { return this->transpose<2, 0, 1>(); }
+    auto jik() const { return this->transpose<1, 2, 0>(); }
 
     auto size() const { return v.size(); }
 

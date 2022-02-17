@@ -82,6 +82,10 @@ public:
     // permutes from 0, 1 -> 1, 0
     __host__ __device__ auto ij() const { return this->transpose<1, 0>(); }
 
+    __host__ __device__ auto ikj() const { return this->transpose<2, 0, 1>(); }
+    __host__ __device__ auto jik() const { return this->transpose<1, 2, 0>(); }
+
+
 private:
     friend class thrust::iterator_core_access;
     template <typename, auto>
