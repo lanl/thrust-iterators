@@ -27,11 +27,11 @@ TEST_CASE("flux")
     randomize();
 
     const int i0 = 10, j0 = 11, k0 = 12;
-    const int i1 = 51, j1 = 30, k1 = 33;
+    const int i1 = 20, j1 = 30, k1 = 33;
     const std::array dx{0.1, 0.5, 0.3};
-    const int gcw = 2;
+    const int gcw = 5;
 
-    vec u(B{k0 - gcw, k0 + gcw}, B{j0 - gcw, j1 + gcw}, B{i0 - gcw, i1 + gcw});
+    vec u(B{k0 - gcw, k1 + gcw}, B{j0 - gcw, j1 + gcw}, B{i0 - gcw, i1 + gcw});
 
     vec b0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
     vec f0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});

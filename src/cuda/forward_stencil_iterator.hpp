@@ -145,7 +145,7 @@ private:
 };
 
 template <typename Iter>
-forward_stencil_iterator<Iter>
+__host__ __device__ forward_stencil_iterator<Iter>
 make_forward_stencil(Iter it,
                      typename thrust::iterator_difference_t<Iter> stencil_stride,
                      typename thrust::iterator_difference_t<Iter> max_stride_distance,

@@ -80,12 +80,16 @@ void forward_stencil_test_cuda<T, N, I>::transform(const T* v, const int (&dims)
     auto stride = stride_dim<I, N>(dims);
     auto u_sz = stride_dim<-1, N>(udims);
 
+    printf("limit/stride/u_sz: %d / %d / %d\n", limit, stride, u_sz);
+
     thrust::device_vector<T> x(v, v + n);
+    thrust::device_vector<T> y(u, u + u_sz);
 
     auto s = make_forward_stencil(x.begin(), stride, limit, u_sz);
 
     assert(thrust::distance(s, s + u_sz) == u_sz);
-    thrust::transform(s, s + u_sz, u, gg<T>{});
+    thrust::transform(s, s + u_sz, y.begin(), gg<T>{});
+    thrust::copy(y.begin(), y.end(), u);
 }
 
 template struct forward_stencil_test_cuda<double, 1, 0>;

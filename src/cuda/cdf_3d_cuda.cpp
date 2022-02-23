@@ -34,37 +34,43 @@ void cdf_3d_cuda<T>::flux(const int& i0,
                           const T* b2_,
                           const int& gcw,
                           const T* u_,
-                          T* f0,
-                          T* f1,
-                          T* f2)
+                          T* f0_,
+                          T* f1_,
+                          T* f2_)
 {
 
-    auto u = make_md_vec(
-        u_, B{k0 - gcw, k0 + gcw}, B{j0 - gcw, j1 + gcw}, B{i0 - gcw, i1 + gcw});
+    const B I = B{i0, i1}, J = B{j0, j1}, K = {k0, k1};
+    auto u = make_md_vec(u_, gcw, K, J, I);
 
-    auto b0 = make_md_vec(b0_, B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    auto b1 = make_md_vec(b1_, B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    auto b2 = make_md_vec(b2_, B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    auto b0 = make_md_vec(b0_, K, J, I + 1);
+    auto b1 = make_md_vec(b1_, I, K, J + 1);
+    auto b2 = make_md_vec(b2_, J, I, K + 1);
+    auto f0 = make_md_vec(f0_, K, J, I + 1);
+    auto f1 = make_md_vec(f1_, I, K, J + 1);
+    auto f2 = make_md_vec(f2_, J, I, K + 1);
 
     thrust::transform(b0.begin(),
                       b0.end(),
-                      u(B{k0, k1}, B{j0, j1}, B{i0 - 1, i1 + 1}).istencil(),
-                      f0,
+                      u(K, J, I.expand(1)).istencil(),
+                      f0.begin(),
                       flux_f<T>{dx[0]});
 
     // b1/f1 is ikj
     thrust::transform(b1.begin(),
                       b1.end(),
-                      u(B{k0, k1}, B{j0 - 1, j1 + 1}, B{i0, i1}).ikj().istencil(),
-                      f1,
+                      u(K, J.expand(1), I).ikj().istencil(),
+                      f1.begin(),
                       flux_f<T>{dx[1]});
 
     // b2/f2 is jik
     thrust::transform(b2.begin(),
                       b2.end(),
-                      u(B{k0 - 1, k1 + 1}, B{j0, j1}, B{i0, i1}).jik().istencil(),
-                      f2,
+                      u(K.expand(1), J, I).jik().istencil(),
+                      f2.begin(),
                       flux_f<T>{dx[2]});
+    thrust::copy(f0.begin(), f0.end(), f0_);
+    thrust::copy(f1.begin(), f1.end(), f1_);
+    thrust::copy(f2.begin(), f2.end(), f2_);
 }
 
 namespace
@@ -93,24 +99,32 @@ void cdf_3d_cuda<T>::poisson_flux(const int& i0,
                                   const T* dx,
                                   const int& gcw,
                                   const T* u_,
-                                  T* f0,
-                                  T* f1,
-                                  T* f2)
+                                  T* f0_,
+                                  T* f1_,
+                                  T* f2_)
 {
-    auto u = make_md_vec(
-        u_, B{k0 - gcw, k1 + gcw}, B{j0 - gcw, j1 + gcw}, B{i0 - gcw, i1 + gcw});
+    const B I = B{i0, i1}, J = B{j0, j1}, K = B{k0, k1};
 
-    auto ux = u(B{k0, k1}, B{j0, j1}, B{i0 - 1, i1 + 1}).istencil();
-    thrust::transform(ux, ux + ux.size(), f0, poisson_flux_f<T>{dx[0]});
+    auto u = make_md_vec(u_, gcw, K, J, I);
+    auto f0 = make_md_vec(f0_, K, J, I + 1);
+    auto f1 = make_md_vec(f1_, I, K, J + 1);
+    auto f2 = make_md_vec(f2_, J, I, K + 1);
+
+    auto ux = u(K, J, I.expand(1)).istencil();
+    thrust::transform(ux, ux + ux.size(), f0.begin(), poisson_flux_f<T>{dx[0]});
 
     // u is kji; f1 is ikj
     // stencil before transpose is in j, after transpose in i
-    auto uy = u(B{k0, k1}, B{j0 - 1, j1 + 1}, B{i0, i1}).ikj().istencil();
-    thrust::transform(uy, uy + uy.size(), f1, poisson_flux_f<T>{dx[1]});
+    auto uy = u(K, J.expand(1), I).ikj().istencil();
+    thrust::transform(uy, uy + uy.size(), f1.begin(), poisson_flux_f<T>{dx[1]});
 
     // u is kji; f2 is jik
-    auto uz = u(B{k0 - 1, k1 + 1}, B{j0, j1}, B{i0, i1}).jik().istencil();
-    thrust::transform(uz, uz + uz.size(), f2, poisson_flux_f<T>{dx[2]});
+    auto uz = u(K.expand(1), J, I).jik().istencil();
+    thrust::transform(uz, uz + uz.size(), f2.begin(), poisson_flux_f<T>{dx[2]});
+
+    thrust::copy(f0.begin(), f0.end(), f0_);
+    thrust::copy(f1.begin(), f1.end(), f1_);
+    thrust::copy(f2.begin(), f2.end(), f2_);
 }
 
 template struct cdf_3d_cuda<double>;

@@ -12,7 +12,8 @@ struct make_transpose_fn {
     static constexpr auto N = sizeof...(I);
 
     template <typename Iter>
-    matrix_traversal_iterator<Iter, N> operator()(Iter it, const int (&sz)[N]) const
+    __host__ __device__ matrix_traversal_iterator<Iter, N>
+    operator()(Iter it, const int (&sz)[N]) const
     {
         int stride[] = {stride_dim<I, N>(sz)...};
         int current[] = {(0 * I)...};
@@ -24,4 +25,4 @@ struct make_transpose_fn {
 } // namespace detail
 
 template <auto... I>
-static constexpr auto make_transpose = detail::make_transpose_fn<I...>{};
+static __device__ constexpr auto make_transpose = detail::make_transpose_fn<I...>{};
