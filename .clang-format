@@ -42,12 +42,12 @@ DerivePointerAlignment: false
 DisableFormat:   false
 ExperimentalAutoDetectBinPacking: false
 FixNamespaceComments: true
-ForEachMacros:   
+ForEachMacros:
   - foreach
   - Q_FOREACH
   - BOOST_FOREACH
 IncludeBlocks:   Preserve
-IncludeCategories: 
+IncludeCategories:
   - Regex:           '^"(llvm|llvm-c|clang|clang-c)/'
     Priority:        2
   - Regex:           '^(<|"(gtest|gmock|isl|json)/)'
@@ -99,8 +99,7 @@ SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
 Standard:        c++20
-StatementMacros: ['SHOCCS_GEN_OPERATORS', 'SHOCCS_GEN_OPERATORS_']
+StatementMacros: ['LAZY_VEC_OPERATORS']
 TabWidth:        4
 UseTab:          Never
 ...
-

@@ -10,6 +10,7 @@ set(THRUST_CPP_DIALECT ${CMAKE_CXX_STANDARD})
 include(CTest)
 
 find_package(Catch2 3 REQUIRED)
+find_package(Boost REQUIRED)
 
 find_package(Thrust REQUIRED CONFIG)
 thrust_create_target(Thrust FROM_OPTIONS)

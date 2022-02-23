@@ -56,8 +56,7 @@ public:
 
     __host__ __device__ int size() const { return ::stride_dim<-1, N>(n); }
 
-    __host__ __device__ forward_stencil_iterator<matrix_traversal_iterator>
-    stencil(int I) const
+    __host__ __device__ forward_stencil_iterator<matrix_traversal_iterator> stencil(int I)
     {
         int dims[N];
         for (int i = 0; i < N; i++) dims[i] = i == I ? n[i] - 1 : n[i];
@@ -69,22 +68,34 @@ public:
         return make_forward_stencil(*this, stride, limit, sz);
     }
 
-    __host__ __device__ auto istencil() const { return stencil(N - 1); }
-    __host__ __device__ auto jstencil() const { return stencil(N - 2); }
-    __host__ __device__ auto kstencil() const { return stencil(N - 3); }
+    template <auto I>
+    __host__ __device__ forward_stencil_iterator<matrix_traversal_iterator> stencil()
+    {
+        int dims[N];
+        for (int i = 0; i < N; i++) dims[i] = i == I ? n[i] - 1 : n[i];
+
+        auto stride = ::stride_dim<I, N>(n);
+        auto limit = ::stride_dim<I - 1, N>(dims);
+        auto sz = ::stride_dim<-1, N>(dims);
+
+        return make_forward_stencil(*this, stride, limit, sz);
+    }
+
+    __host__ __device__ auto istencil() { return stencil(N - 1); }
+    __host__ __device__ auto jstencil() { return stencil(N - 2); }
+    __host__ __device__ auto kstencil() { return stencil(N - 3); }
     // The baseline format is c-ordering of 0, 1, 2
     template <auto... I>
-    __host__ __device__ auto transpose() const
+    __host__ __device__ auto transpose()
     {
         return make_transpose<I...>(*this, n);
     }
 
     // permutes from 0, 1 -> 1, 0
-    __host__ __device__ auto ij() const { return this->transpose<1, 0>(); }
+    __host__ __device__ auto ij() { return this->transpose<1, 0>(); }
 
-    __host__ __device__ auto ikj() const { return this->transpose<2, 0, 1>(); }
-    __host__ __device__ auto jik() const { return this->transpose<1, 2, 0>(); }
-
+    __host__ __device__ auto ikj() { return this->transpose<2, 0, 1>(); }
+    __host__ __device__ auto jik() { return this->transpose<1, 2, 0>(); }
 
 private:
     friend class thrust::iterator_core_access;

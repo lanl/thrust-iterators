@@ -19,8 +19,9 @@ using iter_val = typename thrust::iterator_value_t<Iter>;
 template <typename Iter>
 using iter_ref = typename thrust::iterator_reference_t<Iter>;
 
+// stencil_t<iter_val> doesn't play will with thrust transform iterator
 template <typename Iter>
-using stencil_val = stencil_t<iter_val<Iter>>;
+using stencil_val = stencil_t<iter_ref<Iter>>;
 
 template <typename Iter>
 using stencil_ref = stencil_t<iter_ref<Iter>>;
