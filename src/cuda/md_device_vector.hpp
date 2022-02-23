@@ -16,6 +16,38 @@ struct bounds {
     {
     }
 
+    // operator+ increments the last bound
+    bounds& operator+=(int x)
+    {
+        last += x;
+        return *this;
+    }
+    bounds friend operator+(bounds b, int x)
+    {
+        b += x;
+        return b;
+    }
+    // operator- decrements the first bound
+    bounds& operator-=(int x)
+    {
+        first -= x;
+        return *this;
+    }
+
+    bounds friend operator-(bounds b, int x)
+    {
+        b -= x;
+        return b;
+    }
+
+    bounds expand(int x) const
+    {
+        bounds b{*this};
+        b -= x;
+        b += x;
+        return b;
+    }
+
     int lb() const { return first; }
     int ub() const { return last - 1; }
 
@@ -207,7 +239,16 @@ private:
 };
 
 template <typename T, typename... Bounds>
-md_vector<T, sizeof...(Bounds)> make_md_vec(const T* t, Bounds&&... bnds)
+md_vector<T, 1 + sizeof...(Bounds)>
+make_md_vec(const T* t, const bounds& b, Bounds&&... bnds)
 {
-    return {t, std::array{std::forward<Bounds>(bnds)...}};
+    return {t, std::array{b, std::forward<Bounds>(bnds)...}};
+}
+
+template <typename T, typename... Bounds>
+md_vector<T, 1 + sizeof...(Bounds)>
+make_md_vec(const T* t, int offset, bounds b, Bounds... bnds)
+{
+
+    return {t, std::array{b.expand(offset), bnds.expand(offset)...}};
 }

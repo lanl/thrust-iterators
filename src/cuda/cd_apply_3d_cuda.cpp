@@ -52,33 +52,30 @@ void cd_apply_3d_cuda<T>::diffusion_v1_res(const int& i0,
                                            const int& rgcw,
                                            T* res_)
 {
-    auto a = make_md_vec(
-        a_, B{k0 - agcw, k1 + agcw}, B{j0 - agcw, j1 + agcw}, B{i0 - agcw, i1 + agcw});
-    auto u = make_md_vec(
-        u_, B{k0 - ugcw, k1 + ugcw}, B{j0 - ugcw, j1 + ugcw}, B{i0 - ugcw, i1 + ugcw});
-    auto f = make_md_vec(
-        f_, B{k0 - fgcw, k1 + fgcw}, B{j0 - fgcw, j1 + fgcw}, B{i0 - fgcw, i1 + fgcw});
-    auto res = make_md_vec(
-        res_, B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    auto f0 = make_md_vec(f0_, B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    auto f1 = make_md_vec(f1_, B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    auto f2 = make_md_vec(f2_, B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto I = B{i0, i1}, J = B{j0, j1}, K = B{k0, k1};
 
-    auto f_mat = f(B{k0, k1}, B{j0, j1}, B{i0, i1});
+    auto a = make_md_vec(a_, agcw, K, J, I);
+    auto u = make_md_vec(u_, ugcw, K, J, I);
+    auto f = make_md_vec(f_, fgcw, K, J, I);
+    auto res = make_md_vec(res_, rgcw, K, J, I);
+    auto f0 = make_md_vec(f0_, K, J, I + 1);
+    auto f1 = make_md_vec(f1_, I, K, J + 1);
+    auto f2 = make_md_vec(f2_, J, I, K + 1);
+
+    auto f_mat = f(K, J, I);
 
     // f1 is ikj, a jik transpose -> kji order
     // f2 is jik, a ikj transpose -> kji order
 
-    thrust::transform(
-        f_mat,
-        f_mat + f_mat.size(),
-        thrust::make_zip_iterator(thrust::make_tuple(f0.istencil(),
-                                                     f1.jik().jstencil(),
-                                                     f2.ikj().kstencil(),
-                                                     u(B{k0, k1}, B{j0, j1}, B{i0, i1}),
-                                                     a(B{k0, k1}, B{j0, j1}, B{i0, i1}))),
-        res(B{k0, k1}, B{j0, j1}, B{i0, i1}),
-        diffusion_v1_res_f<T>{alpha, beta, dx[0], dx[1], dx[2]});
+    thrust::transform(f_mat,
+                      f_mat + f_mat.size(),
+                      thrust::make_zip_iterator(thrust::make_tuple(f0.istencil(),
+                                                                   f1.jik().jstencil(),
+                                                                   f2.ikj().kstencil(),
+                                                                   u(K, J, I),
+                                                                   a(K, J, I))),
+                      res(K, J, I),
+                      diffusion_v1_res_f<T>{alpha, beta, dx[0], dx[1], dx[2]});
 
     thrust::copy(res.begin(), res.end(), res_);
 }
@@ -122,17 +119,16 @@ void cd_apply_3d_cuda<T>::diffusion_v2_res(const int& i0,
                                            const int& rgcw,
                                            T* res_)
 {
-    auto u = make_md_vec(
-        u_, B{k0 - ugcw, k1 + ugcw}, B{j0 - ugcw, j1 + ugcw}, B{i0 - ugcw, i1 + ugcw});
-    auto f = make_md_vec(
-        f_, B{k0 - fgcw, k1 + fgcw}, B{j0 - fgcw, j1 + fgcw}, B{i0 - fgcw, i1 + fgcw});
-    auto res = make_md_vec(
-        res_, B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    auto f0 = make_md_vec(f0_, B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    auto f1 = make_md_vec(f1_, B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    auto f2 = make_md_vec(f2_, B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto I = B{i0, i1}, J = B{j0, j1}, K = B{k0, k1};
 
-    auto f_mat = f(B{k0, k1}, B{j0, j1}, B{i0, i1});
+    auto u = make_md_vec(u_, ugcw, K, J, I);
+    auto f = make_md_vec(f_, fgcw, K, J, I);
+    auto res = make_md_vec(res_, rgcw, K, J, I);
+    auto f0 = make_md_vec(f0_, K, J, I + 1);
+    auto f1 = make_md_vec(f1_, I, K, J + 1);
+    auto f2 = make_md_vec(f2_, J, I, K + 1);
+
+    auto f_mat = f(K, J, I);
 
     // f1 is ikj, a jik transpose -> kji order
     // f2 is jik, a ikj transpose -> kji order
@@ -140,11 +136,9 @@ void cd_apply_3d_cuda<T>::diffusion_v2_res(const int& i0,
     thrust::transform(
         f_mat,
         f_mat + f_mat.size(),
-        thrust::make_zip_iterator(thrust::make_tuple(f0.istencil(),
-                                                     f1.jik().jstencil(),
-                                                     f2.ikj().kstencil(),
-                                                     u(B{k0, k1}, B{j0, j1}, B{i0, i1}))),
-        res(B{k0, k1}, B{j0, j1}, B{i0, i1}),
+        thrust::make_zip_iterator(thrust::make_tuple(
+            f0.istencil(), f1.jik().jstencil(), f2.ikj().kstencil(), u(K, J, I))),
+        res(K, J, I),
         diffusion_v2_res_f<T>{alpha, beta, dx[0], dx[1], dx[2]});
 
     thrust::copy(res.begin(), res.end(), res_);
@@ -185,15 +179,15 @@ void cd_apply_3d_cuda<T>::poisson_v1_res(const int& i0,
                                          const int& rgcw,
                                          T* res_)
 {
-    auto f = make_md_vec(
-        f_, B{k0 - fgcw, k1 + fgcw}, B{j0 - fgcw, j1 + fgcw}, B{i0 - fgcw, i1 + fgcw});
-    auto res = make_md_vec(
-        res_, B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    auto f0 = make_md_vec(f0_, B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    auto f1 = make_md_vec(f1_, B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    auto f2 = make_md_vec(f2_, B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto I = B{i0, i1}, J = B{j0, j1}, K = B{k0, k1};
 
-    auto f_mat = f(B{k0, k1}, B{j0, j1}, B{i0, i1});
+    auto f = make_md_vec(f_, fgcw, K, J, I);
+    auto res = make_md_vec(res_, rgcw, K, J, I);
+    auto f0 = make_md_vec(f0_, K, J, I + 1);
+    auto f1 = make_md_vec(f1_, I, K, J + 1);
+    auto f2 = make_md_vec(f2_, J, I, K + 1);
+
+    auto f_mat = f(K, J, I);
 
     // f1 is ikj, a jik transpose -> kji order
     // f2 is jik, a ikj transpose -> kji order
@@ -202,7 +196,7 @@ void cd_apply_3d_cuda<T>::poisson_v1_res(const int& i0,
                       f_mat + f_mat.size(),
                       thrust::make_zip_iterator(thrust::make_tuple(
                           f0.istencil(), f1.jik().jstencil(), f2.ikj().kstencil())),
-                      res(B{k0, k1}, B{j0, j1}, B{i0, i1}),
+                      res(K, J, I),
                       poisson_v1_res_f<T>{beta, dx[0], dx[1], dx[2]});
 
     thrust::copy(res.begin(), res.end(), res_);
@@ -248,17 +242,16 @@ void cd_apply_3d_cuda<T>::diffusion_v1_apply(const int& i0,
                                              T* res_)
 {
 
-    auto a = make_md_vec(
-        a_, B{k0 - agcw, k1 + agcw}, B{j0 - agcw, j1 + agcw}, B{i0 - agcw, i1 + agcw});
-    auto u = make_md_vec(
-        u_, B{k0 - ugcw, k1 + ugcw}, B{j0 - ugcw, j1 + ugcw}, B{i0 - ugcw, i1 + ugcw});
-    auto res = make_md_vec(
-        res_, B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    auto f0 = make_md_vec(f0_, B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    auto f1 = make_md_vec(f1_, B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    auto f2 = make_md_vec(f2_, B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto I = B{i0, i1}, J = B{j0, j1}, K = B{k0, k1};
 
-    auto u_mat = u(B{k0, k1}, B{j0, j1}, B{i0, i1});
+    auto a = make_md_vec(a_, agcw, K, J, I);
+    auto u = make_md_vec(u_, ugcw, K, J, I);
+    auto res = make_md_vec(res_, rgcw, K, J, I);
+    auto f0 = make_md_vec(f0_, K, J, I + 1);
+    auto f1 = make_md_vec(f1_, I, K, J + 1);
+    auto f2 = make_md_vec(f2_, J, I, K + 1);
+
+    auto u_mat = u(K, J, I);
 
     // f1 is ikj, a jik transpose -> kji order
     // f2 is jik, a ikj transpose -> kji order
@@ -266,11 +259,9 @@ void cd_apply_3d_cuda<T>::diffusion_v1_apply(const int& i0,
     thrust::transform(
         u_mat,
         u_mat + u_mat.size(),
-        thrust::make_zip_iterator(thrust::make_tuple(f0.istencil(),
-                                                     f1.jik().jstencil(),
-                                                     f2.ikj().kstencil(),
-                                                     a(B{k0, k1}, B{j0, j1}, B{i0, i1}))),
-        res(B{k0, k1}, B{j0, j1}, B{i0, i1}),
+        thrust::make_zip_iterator(thrust::make_tuple(
+            f0.istencil(), f1.jik().jstencil(), f2.ikj().kstencil(), a(K, J, I))),
+        res(K, J, I),
         diffusion_v1_apply_f<T>{alpha, beta, dx[0], dx[1], dx[2]});
 
     thrust::copy(res.begin(), res.end(), res_);
@@ -313,15 +304,15 @@ void cd_apply_3d_cuda<T>::diffusion_v2_apply(const int& i0,
                                              T* res_)
 {
 
-    auto u = make_md_vec(
-        u_, B{k0 - ugcw, k1 + ugcw}, B{j0 - ugcw, j1 + ugcw}, B{i0 - ugcw, i1 + ugcw});
-    auto res = make_md_vec(
-        res_, B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    auto f0 = make_md_vec(f0_, B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    auto f1 = make_md_vec(f1_, B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    auto f2 = make_md_vec(f2_, B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto I = B{i0, i1}, J = B{j0, j1}, K = B{k0, k1};
 
-    auto u_mat = u(B{k0, k1}, B{j0, j1}, B{i0, i1});
+    auto u = make_md_vec(u_, ugcw, K, J, I);
+    auto res = make_md_vec(res_, rgcw, K, J, I);
+    auto f0 = make_md_vec(f0_, K, J, I + 1);
+    auto f1 = make_md_vec(f1_, I, K, J + 1);
+    auto f2 = make_md_vec(f2_, J, I, K + 1);
+
+    auto u_mat = u(K, J, I);
 
     // f1 is ikj, a jik transpose -> kji order
     // f2 is jik, a ikj transpose -> kji order
@@ -330,7 +321,7 @@ void cd_apply_3d_cuda<T>::diffusion_v2_apply(const int& i0,
                       u_mat + u_mat.size(),
                       thrust::make_zip_iterator(thrust::make_tuple(
                           f0.istencil(), f1.jik().jstencil(), f2.ikj().kstencil())),
-                      res(B{k0, k1}, B{j0, j1}, B{i0, i1}),
+                      res(K, J, I),
                       diffusion_v2_apply_f<T>{alpha, beta, dx[0], dx[1], dx[2]});
 
     thrust::copy(res.begin(), res.end(), res_);
@@ -369,11 +360,12 @@ void cd_apply_3d_cuda<T>::poisson_v2_apply(const int& i0,
                                            const int& rgcw,
                                            T* res_)
 {
-    auto res = make_md_vec(
-        res_, B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    auto f0 = make_md_vec(f0_, B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    auto f1 = make_md_vec(f1_, B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    auto f2 = make_md_vec(f2_, B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto I = B{i0, i1}, J = B{j0, j1}, K = B{k0, k1};
+
+    auto res = make_md_vec(res_, rgcw, K, J, I);
+    auto f0 = make_md_vec(f0_, K, J, I + 1);
+    auto f1 = make_md_vec(f1_, I, K, J + 1);
+    auto f2 = make_md_vec(f2_, J, I, K + 1);
 
     auto st = f0.istencil();
 
@@ -384,7 +376,7 @@ void cd_apply_3d_cuda<T>::poisson_v2_apply(const int& i0,
                       st + st.size(),
                       thrust::make_zip_iterator(
                           thrust::make_tuple(f1.jik().jstencil(), f2.ikj().kstencil())),
-                      res(B{k0, k1}, B{j0, j1}, B{i0, i1}),
+                      res(K, J, I),
                       poisson_v2_apply_f<T>{beta, dx[0], dx[1], dx[2]});
 
     thrust::copy(res.begin(), res.end(), res_);
