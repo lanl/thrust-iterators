@@ -3,7 +3,6 @@
 #include "forward_stencil_iterator.hpp"
 #include "thrust/iterator/zip_iterator.h"
 #include "traits.hpp"
-#include <boost/type_traits/copy_cv_ref.hpp>
 #include <thrust/functional.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <type_traits>
@@ -107,12 +106,11 @@ struct lazy_vec_math {
 private:
     // can't use auto for the return type since the functions then have the same
     // signature, triggering a redeclaration error
-
 #define LAZY_VEC_OPERATORS(op, nextOp)                                                   \
     template <typename U, typename V, typename = std::enable_if_t<is_similar_v<T, U>>>   \
-    __host__ __device__ constexpr friend transform_op<boost::copy_cv_ref_t<T, U>,        \
-                                                      arithmetic_by_value_t<V>,          \
-                                                      nextOp>                            \
+    constexpr friend transform_op<boost::copy_cv_ref_t<T, U>,                            \
+                                  arithmetic_by_value_t<V>,                              \
+                                  nextOp>                                                \
     op(U&& u, V&& v)                                                                     \
     {                                                                                    \
         return {FWD(u), FWD(v)};                                                         \
@@ -121,9 +119,9 @@ private:
     template <typename U,                                                                \
               typename V,                                                                \
               typename = std::enable_if_t<is_number_v<U> && is_similar_v<T, V>>>         \
-    __host__ __device__ constexpr friend transform_op<arithmetic_by_value_t<U>,          \
-                                                      boost::copy_cv_ref_t<T, V>,        \
-                                                      nextOp>                            \
+    constexpr friend transform_op<arithmetic_by_value_t<U>,                              \
+                                  boost::copy_cv_ref_t<T, V>,                            \
+                                  nextOp>                                                \
     op(U&& u, V&& v)                                                                     \
     {                                                                                    \
         return {FWD(u), FWD(v)};                                                         \
@@ -146,7 +144,7 @@ struct transform_op : private lazy_vec_math<transform_op<U, V, Op>> {
     transform_op(U u, V v, Op op = {}) : u(u), v(v), op{op} {}
 
     template <typename... Bnds>
-    __host__ __device__ constexpr auto operator()(Bnds&&... bnds)
+    constexpr auto operator()(Bnds&&... bnds)
     {
         if constexpr (std::is_arithmetic_v<U>)
             return thrust::make_transform_iterator(v(FWD(bnds)...),

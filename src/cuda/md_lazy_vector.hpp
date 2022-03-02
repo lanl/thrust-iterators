@@ -106,7 +106,7 @@ struct gradient_helper {
     T t;
 
     template <auto... O>
-    __host__ __device__ constexpr auto operator()(dir_bounds<O>... bnds)
+    constexpr auto operator()(dir_bounds<O>... bnds)
     {
         return t((bnds + shift_v<Shift, I, O>)...)
             .template stencil<map_index_v<index_list<O...>, I>>();
@@ -114,7 +114,7 @@ struct gradient_helper {
 
     template <typename... Dims,
               typename = std::enable_if_t<(is_bound_dim_v<Dims> && ...)>>
-    __host__ __device__ auto operator()(Dims&&... dims)
+    auto operator()(Dims&&... dims)
     {
         // for now assume that the bound dims are in the same order
         return (*this)(FWD(dims).t...);
@@ -122,7 +122,7 @@ struct gradient_helper {
 };
 
 template <int Shift, typename Vec, typename T, auto N>
-__host__ __device__ transform_op<T, gradient_helper<Shift, Vec, N>, gradient>
+transform_op<T, gradient_helper<Shift, Vec, N>, gradient>
 make_gradient_transform(Vec&& vec, T h, placeholders::detail::placeholder_t<N>)
 {
     return {h, {FWD(vec)}};
@@ -165,7 +165,7 @@ public:
 
     lazy_vector() = default;
 
-    __host__ __device__ lazy_vector(const T* v, lazy::dir_bounds<Order>... bnds)
+    lazy_vector(const T* v, lazy::dir_bounds<Order>... bnds)
         : v(v, v + (bnds.size() * ...)), b{bnds...}
     {
     }
@@ -177,7 +177,8 @@ public:
     }
 
     template <auto... O>
-    __host__ __device__ auto operator()(lazy::dir_bounds<O>... bnds)
+
+    auto operator()(lazy::dir_bounds<O>... bnds)
     {
         static_assert(N == sizeof...(O));
 
@@ -203,12 +204,13 @@ public:
             return make_submatrix(begin(), sz, lb, ub);
         } else {
             using Seq = transpose_sequence_t<index_list<Order...>, index_list<O...>>;
-            return detail::make_submatrix_helper(Seq{}, begin(), sz, lb, ub);
+            return detail::make_submatrix_helper<decltype(begin()), N>(
+                Seq{}, begin(), sz, lb, ub);
         }
     }
 
     template <auto... O>
-    __host__ __device__ auto operator()(lazy::dir_bounds<O>... bnds) const
+    auto operator()(lazy::dir_bounds<O>... bnds) const
     {
         static_assert(N == sizeof...(O));
 
@@ -235,42 +237,42 @@ public:
 
     template <typename... Dims,
               typename = std::enable_if_t<(is_bound_dim_v<Dims> && ...)>>
-    __host__ __device__ auto operator()(Dims&&... dims)
+    auto operator()(Dims&&... dims)
     {
         return (*this)(FWD(dims).t...);
     }
 
     template <typename... Dims,
               typename = std::enable_if_t<(is_bound_dim_v<Dims> && ...)>>
-    __host__ __device__ auto operator()(Dims&&... dims) const
+    auto operator()(Dims&&... dims) const
     {
         return (*this)(FWD(dims).t...);
     }
 
     template <int S = 1>
-    __host__ __device__ auto grad_x(T h, mp::mp_int<S> = {})
+    auto grad_x(T h, mp::mp_int<S> = {})
     {
         return lazy::make_gradient_transform<S>(*this, h, lazy::placeholders::I);
     }
 
     template <int S = 1>
-    __host__ __device__ auto grad_y(T h, mp::mp_int<S> = {})
+    auto grad_y(T h, mp::mp_int<S> = {})
     {
         return lazy::make_gradient_transform<S>(*this, h, lazy::placeholders::J);
     }
 
     template <int S = 1>
-    __host__ __device__ auto grad_z(T h, mp::mp_int<S> = {})
+    auto grad_z(T h, mp::mp_int<S> = {})
     {
         return lazy::make_gradient_transform<S>(*this, h, lazy::placeholders::K);
     }
 
     __host__ __device__ auto size() const { return v.size(); }
 
-    __host__ __device__ auto begin() { return v.begin(); }
-    __host__ __device__ auto begin() const { return v.begin(); }
-    __host__ __device__ auto end() { return v.end(); }
-    __host__ __device__ auto end() const { return v.end(); }
+    auto begin() { return v.begin(); }
+    auto begin() const { return v.begin(); }
+    auto end() { return v.end(); }
+    auto end() const { return v.end(); }
 
     auto copy_to(T* t) const { return thrust::copy(begin(), end(), t); }
 
@@ -285,21 +287,15 @@ private:
 };
 
 template <typename T, auto... Order>
-__host__ __device__ lazy_vector<T, Order...>
-make_vec(const T* t, const lazy::dir_bounds<Order>... bnds)
+lazy_vector<T, Order...> make_vec(const T* t, const lazy::dir_bounds<Order>... bnds)
 {
     return {t, bnds...};
 }
 
 template <typename T, auto... Order>
-__host__ __device__ lazy_vector<T, Order...>
+lazy_vector<T, Order...>
 make_vec(const T* t, int offset, const lazy::dir_bounds<Order>... bnds)
 {
 
     return {t, bnds.expand(offset)...};
 }
-
-// template<typename T, auto... Order>
-// auto grad_x(const lazy_vector<T, Order...>& u, T dx) {
-//     return transform_op<
-// }

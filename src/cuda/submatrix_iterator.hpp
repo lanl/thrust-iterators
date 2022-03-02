@@ -7,7 +7,6 @@
 namespace detail
 {
 template <typename Iter, auto N, size_t... I>
-__host__ __device__
 matrix_traversal_iterator<Iter, N> make_submatrix_helper(std::index_sequence<I...>,
                                                          Iter it,
                                                          const int (&sz)[N],
@@ -25,7 +24,6 @@ matrix_traversal_iterator<Iter, N> make_submatrix_helper(std::index_sequence<I..
 // for some reason, nvcc can't deduce N if we write `auto N`...
 template <typename Iter, int N>
 matrix_traversal_iterator<Iter, N>
-__host__ __device__
 make_submatrix(Iter it, const int (&sz)[N], const int (&lb)[N], const int (&ub)[N])
 {
     return detail::make_submatrix_helper<Iter, N>(std::make_index_sequence<N>{}, it, sz, lb, ub);
