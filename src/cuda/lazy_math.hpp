@@ -105,14 +105,11 @@ struct transform_op;
 template <typename T>
 struct lazy_vec_math {
 private:
-    template <typename U>
-    static constexpr bool isT = std::is_same_v<T, un_cvref_t<U>>;
-
     // can't use auto for the return type since the functions then have the same
     // signature, triggering a redeclaration error
 
 #define LAZY_VEC_OPERATORS(op, nextOp)                                                   \
-    template <typename U, typename V, typename = std::enable_if_t<isT<U>>>               \
+    template <typename U, typename V, typename = std::enable_if_t<is_similar_v<T, U>>>   \
     __host__ __device__ constexpr friend transform_op<boost::copy_cv_ref_t<T, U>,        \
                                                       arithmetic_by_value_t<V>,          \
                                                       nextOp>                            \
@@ -123,7 +120,7 @@ private:
                                                                                          \
     template <typename U,                                                                \
               typename V,                                                                \
-              typename = std::enable_if_t<is_number_v<U> && isT<V>>>                     \
+              typename = std::enable_if_t<is_number_v<U> && is_similar_v<T, V>>>         \
     __host__ __device__ constexpr friend transform_op<arithmetic_by_value_t<U>,          \
                                                       boost::copy_cv_ref_t<T, V>,        \
                                                       nextOp>                            \

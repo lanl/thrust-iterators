@@ -1,8 +1,6 @@
 #pragma once
 
 #include <boost/mp11.hpp>
-#include <boost/mp11/detail/mp_rename.hpp>
-#include <boost/mp11/integral.hpp>
 #include <boost/type_traits/copy_cv_ref.hpp>
 #include <cstddef>
 #include <type_traits>
@@ -175,3 +173,9 @@ struct select_shift : std::conditional<X == Y, mp::mp_int<Shift>, mp::mp_int<0>>
 
 template <int S, auto X, auto Y>
 static constexpr int shift_v = select_shift<S, X, Y>::type::value;
+
+//
+// traits for same ignoring cvref qualifiers
+//
+template <typename T, typename U>
+static constexpr auto is_similar_v = std::is_same_v<un_cvref_t<T>, un_cvref_t<U>>;
