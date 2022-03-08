@@ -2,8 +2,6 @@
 
 #include "md_lazy_vector.hpp"
 
-using namespace lazy::placeholders;
-
 template <typename T>
 void cd_apply_2d_cuda<T>::diffusion_v1_res(const int& i0,
                                            const int& i1,
@@ -33,8 +31,8 @@ void cd_apply_2d_cuda<T>::diffusion_v1_res(const int& i0,
     auto f0 = make_vec(f0_, j, i + 1);
     auto f1 = make_vec(f1_, i, j + 1);
 
-    with_domain(J = j, I = i)(res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])) -
-                                    alpha * a * u);
+    with_domain(j, i)(res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])) -
+                            alpha * a * u);
     res.copy_to(res_);
 }
 
@@ -64,8 +62,7 @@ void cd_apply_2d_cuda<T>::diffusion_v2_res(const int& i0,
     auto f0 = make_vec(f0_, j, i + 1);
     auto f1 = make_vec(f1_, i, j + 1);
 
-    with_domain(J = j, I = i)(res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])) -
-                                    alpha * u);
+    with_domain(j, i)(res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])) - alpha * u);
     res.copy_to(res_);
 }
 
@@ -91,7 +88,7 @@ void cd_apply_2d_cuda<T>::poisson_v1_res(const int& i0,
     auto f0 = make_vec(f0_, j, i + 1);
     auto f1 = make_vec(f1_, i, j + 1);
 
-    with_domain(J = j, I = i)(res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])));
+    with_domain(j, i)(res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])));
     res.copy_to(res_);
 }
 
@@ -121,8 +118,8 @@ void cd_apply_2d_cuda<T>::diffusion_v1_apply(const int& i0,
     auto f0 = make_vec(f0_, j, i + 1);
     auto f1 = make_vec(f1_, i, j + 1);
 
-    with_domain(J = j, I = i)(res = -beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])) +
-                                    alpha * a * u);
+    with_domain(j,
+                i)(res = -beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])) + alpha * a * u);
     res.copy_to(res_);
 }
 
@@ -149,8 +146,7 @@ void cd_apply_2d_cuda<T>::diffusion_v2_apply(const int& i0,
     auto f0 = make_vec(f0_, j, i + 1);
     auto f1 = make_vec(f1_, i, j + 1);
 
-    with_domain(J = j,
-                I = i)(res = -beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])) + alpha * u);
+    with_domain(j, i)(res = -beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])) + alpha * u);
     res.copy_to(res_);
 }
 
@@ -173,7 +169,7 @@ void cd_apply_2d_cuda<T>::poisson_v2_apply(const int& i0,
     auto f0 = make_vec(f0_, j, i + 1);
     auto f1 = make_vec(f1_, i, j + 1);
 
-    with_domain(J = j, I = i)(res = -beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])));
+    with_domain(j, i)(res = -beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1])));
     res.copy_to(res_);
 }
 

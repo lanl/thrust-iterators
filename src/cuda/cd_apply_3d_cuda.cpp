@@ -2,8 +2,6 @@
 
 #include "md_lazy_vector.hpp"
 
-using namespace lazy::placeholders;
-
 template <typename T>
 void cd_apply_3d_cuda<T>::diffusion_v1_res(const int& i0,
                                            const int& i1,
@@ -38,7 +36,7 @@ void cd_apply_3d_cuda<T>::diffusion_v1_res(const int& i0,
     auto f1 = make_vec(f1_, i, k, j + 1);
     auto f2 = make_vec(f2_, j, i, k + 1);
 
-    with_domain(K = k, J = j, I = i)(
+    with_domain(k, j, i)(
         res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])) -
               alpha * a * u);
     res.copy_to(res_);
@@ -75,7 +73,7 @@ void cd_apply_3d_cuda<T>::diffusion_v2_res(const int& i0,
     auto f1 = make_vec(f1_, i, k, j + 1);
     auto f2 = make_vec(f2_, j, i, k + 1);
 
-    with_domain(K = k, J = j, I = i)(
+    with_domain(k, j, i)(
         res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])) -
               alpha * u);
     res.copy_to(res_);
@@ -108,7 +106,7 @@ void cd_apply_3d_cuda<T>::poisson_v1_res(const int& i0,
     auto f1 = make_vec(f1_, i, k, j + 1);
     auto f2 = make_vec(f2_, j, i, k + 1);
 
-    with_domain(K = k, J = j, I = i)(
+    with_domain(k, j, i)(
         res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])));
     res.copy_to(res_);
 }
@@ -144,7 +142,7 @@ void cd_apply_3d_cuda<T>::diffusion_v1_apply(const int& i0,
     auto f1 = make_vec(f1_, i, k, j + 1);
     auto f2 = make_vec(f2_, j, i, k + 1);
 
-    with_domain(K = k, J = j, I = i)(
+    with_domain(k, j, i)(
         res = -beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])) +
               alpha * a * u);
 
@@ -179,7 +177,7 @@ void cd_apply_3d_cuda<T>::diffusion_v2_apply(const int& i0,
     auto f1 = make_vec(f1_, i, k, j + 1);
     auto f2 = make_vec(f2_, j, i, k + 1);
 
-    with_domain(K = k, J = j, I = i)(
+    with_domain(k, j, i)(
         res =
             -beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])) + alpha * u);
 
@@ -210,8 +208,8 @@ void cd_apply_3d_cuda<T>::poisson_v2_apply(const int& i0,
     auto f1 = make_vec(f1_, i, k, j + 1);
     auto f2 = make_vec(f2_, j, i, k + 1);
 
-    with_domain(K = k, J = j, I = i)(
-        res = -beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])));
+    with_domain(k, j, i)(res = -beta *
+                               (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])));
 
     res.copy_to(res_);
 }

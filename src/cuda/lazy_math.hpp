@@ -10,6 +10,8 @@
 namespace lazy
 {
 
+// simple structs with a templated call operator because we cannot annotate our lambdas
+// with __host__ __device__ without special compiler flags
 struct plus {
     template <typename U, typename V>
     __host__ __device__ constexpr auto operator()(U&& u, V&& v) const
@@ -51,6 +53,9 @@ struct gradient {
     }
 };
 
+//
+// apply_left/right for the case when a numeric value is involved
+//
 template <typename T, typename Op>
 struct apply_right {
     T t;
@@ -75,6 +80,9 @@ struct apply_left {
     }
 };
 
+//
+// apply_zip is used when we are operating on two iterators
+//
 template <typename Op>
 struct apply_zip {
     Op op;
@@ -86,18 +94,21 @@ struct apply_zip {
     }
 };
 
-template <typename, auto...>
-class lazy_vector;
-
-template <typename>
-struct lazy_vec_math;
-
-class vec_math_access
-{
-    template <typename T>
-    friend class lazy_vec_math;
-};
-
+//
+// The transform_op struct is callable object returned by the lazy math operations.  When
+// called, it forwards its arguments to its member(s) and returns a transform_iterator.
+// Thus our lazy_vec_math leads to transform_ops of transform_ops of ... and a similar
+// chaining of transform_iterators.
+//
+// To prevent unneccessary copies, the value category of the members
+// of transform_op are functions of the input to the lazy_vec_math operators.  For
+// example, if operation+ involves and lvalue& of lazy_vec<...>, then one of the members
+// will be an lvalue& of lazy_vec<...>.  Rvalue refererences become values.  All
+// arithmetic values are also captured by value
+//
+// This does conflate value category with lifetime but that shouldn't be a problem for the
+// designed use
+//
 template <typename, typename, typename>
 struct transform_op;
 
@@ -156,9 +167,6 @@ struct transform_op : private lazy_vec_math<transform_op<U, V, Op>> {
             return thrust::make_transform_iterator(
                 thrust::make_zip_iterator(u(bnds...), v(bnds...)), apply_zip<Op>{op});
     }
-
-private:
-    friend class vec_math_access;
 };
 
 } // namespace lazy

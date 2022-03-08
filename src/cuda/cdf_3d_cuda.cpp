@@ -2,8 +2,6 @@
 
 #include "md_lazy_vector.hpp"
 
-using namespace lazy::placeholders;
-
 template <typename T>
 void cdf_3d_cuda<T>::flux(const int& i0,
                           const int& j0,

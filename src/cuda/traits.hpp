@@ -1,5 +1,6 @@
 #pragma once
 
+#include "md_lazy_vector.hpp"
 #include <boost/mp11.hpp>
 #include <boost/type_traits/copy_cv_ref.hpp>
 #include <cstddef>
@@ -19,12 +20,13 @@ struct un_cvref {
 };
 } // namespace detail
 
+// c++20 std::remove_cvref_t
 template <typename T>
 using un_cvref_t = typename detail::un_cvref<T>::type;
 
 //
 // traits for number - similar to is_arithmetic but is also true for references to
-// arithmetic types
+// arithmetic types since we generally do not care about references to double and so forth
 //
 template <typename T>
 static constexpr auto is_number_v = std::is_arithmetic_v<un_cvref_t<T>>;
@@ -49,28 +51,28 @@ template <typename T>
 static constexpr auto is_bounds_v = detail::is_bounds<un_cvref_t<T>>::value;
 
 //
-// traits for bound_dim
+// traits for dir_bounds
 //
 namespace lazy
 {
-template <auto, typename>
-struct bound_dim;
+template <auto>
+struct dir_bounds;
 }
 
 namespace detail
 {
 
 template <typename T>
-struct is_bound_dim : std::false_type {
+struct is_dir_bounds : std::false_type {
 };
 
-template <auto I, typename T>
-struct is_bound_dim<lazy::bound_dim<I, T>> : std::true_type {
+template <auto I>
+struct is_dir_bounds<lazy::dir_bounds<I>> : std::true_type {
 };
 } // namespace detail
 
 template <typename T>
-static constexpr auto is_bound_dim_v = detail::is_bound_dim<un_cvref_t<T>>::value;
+static constexpr auto is_dir_bounds_v = detail::is_dir_bounds<un_cvref_t<T>>::value;
 
 //
 // traits for assign_proxy
@@ -96,7 +98,7 @@ template <typename T>
 static constexpr auto is_assign_proxy_v = detail::is_assign_proxy<un_cvref_t<T>>::value;
 
 //
-// traits for ensuring arithmetic values are by-value
+// traits for ensuring arithmetic values are by-value for transform_op
 //
 namespace detail
 {
@@ -116,7 +118,7 @@ template <typename T>
 using arithmetic_by_value_t = typename detail::arithmetic_by_value_impl<T>::type;
 
 //
-// Compile time index manipulation
+// Compile time index manipulation to facilitate invisible transpose operations
 //
 
 template <size_t... Is>
@@ -165,7 +167,7 @@ template <typename From, typename To>
 using transpose_sequence_t = typename transpose_sequence<From, To>::type;
 
 //
-// Utilities for computing the shift needed for gradients
+// Utilities for computing the up/down shift needed for gradients
 //
 template <int Shift, auto X, auto Y>
 struct select_shift : std::conditional<X == Y, mp::mp_int<Shift>, mp::mp_int<0>> {

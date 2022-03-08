@@ -2,8 +2,6 @@
 
 #include "md_lazy_vector.hpp"
 
-using namespace lazy::placeholders;
-
 template <typename T>
 void lazy_vec_cuda<T>::init(const int& i0,
                             const int& i1,
@@ -19,7 +17,7 @@ void lazy_vec_cuda<T>::init(const int& i0,
     auto u = make_vec(u_, ugcw, i);
     auto res = make_vec(res_, rgcw, i);
 
-    with_domain(I = i)(res = 2 * (u.grad_x(dx[0], down) + u.grad_x(dx[0])) / (u + 10));
+    with_domain(i)(res = 2 * (u.grad_x(dx[0], down) + u.grad_x(dx[0])) / (u + 10));
 
     res.copy_to(res_);
 }
@@ -42,7 +40,7 @@ void lazy_vec_cuda<T>::init(const int& i0,
     auto u = make_vec(u_, ugcw, i, j);
     auto res = make_vec(res_, rgcw, j, i);
 
-    with_domain(J = j, I = i)(res = 3 * (u.grad_y(dx[1]) + u.grad_x(dx[0])));
+    with_domain(j, i)(res = 3 * (u.grad_y(dx[1]) + u.grad_x(dx[0])));
 
     res.copy_to(res_);
 }
