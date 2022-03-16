@@ -2,7 +2,10 @@
 
 #include "matrix_utils.hpp"
 
-template <typename, auto>
+template <typename Iter,
+          auto N,
+          typename Val = typename thrust::iterator_value<Iter>::type,
+          typename Ref = typename thrust::iterator_reference<Iter>::type>
 struct matrix_traversal_iterator;
 
 namespace detail
@@ -13,8 +16,7 @@ struct make_transpose_fn {
 
     template <typename Iter>
     // __host__ __device__
-    matrix_traversal_iterator<Iter, N>
-    operator()(Iter it, const int (&sz)[N]) const
+    matrix_traversal_iterator<Iter, N> operator()(Iter it, const int (&sz)[N]) const
     {
         int stride[] = {stride_dim<I, N>(sz)...};
         int current[] = {(0 * I)...};

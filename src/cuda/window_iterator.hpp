@@ -1,70 +1,33 @@
 #pragma once
 
-#include <thrust/advance.h>
-#include <thrust/distance.h>
-#include <thrust/iterator/iterator_facade.h>
-#include <thrust/iterator/iterator_traits.h>
+#include "matrix_traversal_iterator.hpp"
+#include "md_lazy_vector.hpp"
 
-// divides an iterator into a number of contigous, non-overlapping windows
-// assumes the window size evenly divides the iterator size
-template <typename Iter>
-struct window_iterator
-    : thrust::iterator_facade<window_iterator<Iter>,
-                              Iter,
-                              typename thrust::iterator_system<Iter>::type,
-                              typename thrust::iterator_traversal<Iter>::type,
-                              Iter> {
-    using diff_t = thrust::iterator_difference_t<Iter>;
-
-public:
-    __host__ __device__ window_iterator(Iter first, diff_t window_size)
-        : first{first}, w{window_size}
-    {
-    }
-
-private:
-    Iter first;
-    diff_t w;
-
-    friend class thrust::iterator_core_access;
-    template <typename>
-    friend class window_iterator;
-
-    __host__ __device__ Iter dereference() const { return first; }
-
-    template <typename Other>
-    __host__ __device__ bool equal(const window_iterator<Other>& other) const
-    {
-        return this->first == other.first;
-    }
-
-    __host__ __device__ void increment() { thrust::advance(first, w); }
-
-    __host__ __device__ void decrement() { thrust::advance(first, -w); }
-
-    __host__ __device__ void advance(diff_t n) { thrust::advance(first, n * w); }
-
-    template <typename Other>
-    __host__ __device__ diff_t distance_to(const window_iterator<Other>& other) const
-    {
-        return thrust::distance(first, other.first) / w;
-    }
-};
-
-template <typename Iter>
-window_iterator<Iter> make_window(Iter it, int window_size)
+namespace detail
 {
-    return window_iterator<Iter>(it, window_size);
+
+template <auto N, typename Iter, size_t... I>
+matrix_traversal_iterator<Iter, N, Iter, Iter>
+window_helper(std::index_sequence<I...>, Iter it, const int (&sz)[N + 1])
+{
+    int stride[] = {stride_dim<I, N + 1>(sz)...};
+    int current[] = {(0 * I)...};
+    int n[] = {sz[I]...};
+
+    return {it, stride, current, n};
 }
 
-template <typename Iter>
-struct window_pair {
-    window_iterator<Iter> first;
-    window_iterator<Iter> last;
-};
+} // namespace detail
 
-template <typename C>
-auto make_window_pair(C&& c, int window_size) -> window_pair<decltype(c.begin())>
+// construct a multidimensional window iterator from an ND lazy_vec assuming the last
+// dimension is the window size
+template <typename T, auto... Order>
+auto window(lazy_vector<T, Order...>& v)
 {
-    return {make_window(c.begin(), window_size), make_window(c.end(), window_size)};
+    static constexpr auto N = v.N - 1;
+    auto db = v.dir_bounds();
+    // this atrocious construct is because we can't return c-arrays...
+    int sz[] = {std::get<map_index_v<index_list<Order...>, Order>>(db).size()...};
+
+    return detail::window_helper<N>(std::make_index_sequence<N>{}, v.begin(), sz);
 }

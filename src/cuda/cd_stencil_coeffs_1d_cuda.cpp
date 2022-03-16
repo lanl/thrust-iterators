@@ -8,6 +8,7 @@
 #include <thrust/zip_function.h>
 
 #include "md_device_vector.hpp"
+#include "md_lazy_vector.hpp"
 #include <cassert>
 
 // For now these are wrappers around the device kernels that simply handle data transfer.
@@ -28,16 +29,37 @@ struct offdiag_f {
 };
 
 template <typename T>
-void cd_stencil_coeffs_1d_cuda<T>::offdiag(const int& ifirst0,
-                                           const int& ilast0,
-                                           const int& bilo0,
-                                           const int& bihi0,
+void cd_stencil_coeffs_1d_cuda<T>::offdiag(const int& i0,
+                                           const int& i1,
+                                           const int& bi0,
+                                           const int& bi1,
                                            const T* dx,
                                            const T& beta,
-                                           const T* b0,
+                                           const T* b0_,
                                            const int& sgcw,
-                                           T* stencil)
+                                           T* st_)
 {
+
+    const auto i = Ib{i0, i1};
+    const auto b = Ib{bi0, bi1};
+    const auto w = Wb{0, 2};
+
+    auto b0 = make_vec(b0_, b + 1);
+    auto st = make_vec(st_, sgcw, i, w);
+    //
+    // Could this be something like
+
+#if 0
+     with_domain(i)( st.w(1, 6) = {d0 * b0.stencil(), d1 * b1.stencil(), d2 *
+                                   b2.stencil()});
+     // or
+     with_domain(i) (st.w(1, 2) = d0 * b0(I,I+1),
+                     st.w(3, 4) = d1 * b1(J,J+1),
+                     st.w(5, 6) = d2 * b2(K,k+1));
+     // or
+     with_domain(i, window(st)) (st(1, 2) = d0 * b0(I, I+1),
+                                       st(3, 4) = d1 * b1(J, J+1),
+                                       st(5, 6) = d2 * b2(K, K+1));
     auto st = make_md_vec(stencil, bounds(ifirst0 - sgcw, ilast0 + sgcw), bounds(0, 2));
     auto b = make_md_vec(b0, bounds(bilo0, bihi0 + 1));
     const T d0 = -beta / (*dx * *dx);
@@ -51,6 +73,8 @@ void cd_stencil_coeffs_1d_cuda<T>::offdiag(const int& ifirst0,
 
     // copy data back out
     thrust::copy(st.begin(), st.end(), stencil);
+
+#endif
 }
 
 template <typename T>

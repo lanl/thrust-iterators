@@ -4,12 +4,8 @@
 #include <thrust/distance.h>
 #include <thrust/iterator/iterator_facade.h>
 #include <thrust/iterator/iterator_traits.h>
-#include <thrust/tuple.h>
 
-template <typename T>
-struct stencil_t {
-    T a, b;
-};
+#include "stencil_impl.hpp"
 
 namespace detail
 {

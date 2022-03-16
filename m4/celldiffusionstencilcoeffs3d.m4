@@ -1,6 +1,6 @@
-C Copyright 2006, The Regents of the University 
+C Copyright 2006, The Regents of the University
 C of California. This software was produced under
-C a U.S. Government contract (W-7405-ENG-36) 
+C a U.S. Government contract (W-7405-ENG-36)
 C by Los Alamos National Laboratory, which is
 C operated by the University of California for the
 C U.S. Department of Energy. The U.S.
@@ -71,27 +71,27 @@ c
 c using face data for b0,b1,b2 will slow down the creation
 c of the stencils significantly. we should move to using
 c side data for b0,b1,b2
-      
+
       d0 = -beta / (dx(0)*dx(0))
       d1 = -beta / (dx(1)*dx(1))
       d2 = -beta / (dx(2)*dx(2))
-      
+
       do k = ifirst2, ilast2
          do j = ifirst1, ilast1
             do i = ifirst0, ilast0
-               stencil(WW, i, j, k) = d0*b0(i  ,j, k) 
-               stencil(EE, i, j, k) = d0*b0(i+1,j, k) 
-               stencil(SS, i, j, k) = d1*b1(j  ,k, i) 
-               stencil(NN, i, j, k) = d1*b1(j+1,k, i) 
-               stencil(BB, i, j, k) = d2*b2(k  ,i, j) 
-               stencil(TT, i, j, k) = d2*b2(k+1,i, j) 
+               stencil(WW, i, j, k) = d0*b0(i  ,j, k)
+               stencil(EE, i, j, k) = d0*b0(i+1,j, k)
+               stencil(SS, i, j, k) = d1*b1(j  ,k, i)
+               stencil(NN, i, j, k) = d1*b1(j+1,k, i)
+               stencil(BB, i, j, k) = d2*b2(k  ,i, j)
+               stencil(TT, i, j, k) = d2*b2(k+1,i, j)
             enddo
          enddo
       enddo
 
       return
       end
-c     
+c
       recursive subroutine cellpoissonoffdiag3d(
      &  ifirst0,ifirst1,ifirst2,
      &  ilast0,ilast1,ilast2,
@@ -117,7 +117,7 @@ c
       d0 = -beta / (dx(0)*dx(0))
       d1 = -beta / (dx(1)*dx(1))
       d2 = -beta / (dx(2)*dx(2))
-      
+
       do k = ifirst2, ilast2
          do j = ifirst1, ilast1
             do i = ifirst0, ilast0
@@ -163,11 +163,11 @@ c
       do k = ifirst2, ilast2
          do j = ifirst1, ilast1
             do i = ifirst0, ilast0
-               stencil(PP, i,j,k) = -(stencil(WW, i,j,k) 
-     &                              + stencil(EE, i,j,k) 
-     &                              + stencil(SS, i,j,k) 
+               stencil(PP, i,j,k) = -(stencil(WW, i,j,k)
+     &                              + stencil(EE, i,j,k)
+     &                              + stencil(SS, i,j,k)
      &                              + stencil(NN, i,j,k)
-     &                              + stencil(BB, i,j,k) 
+     &                              + stencil(BB, i,j,k)
      &                              + stencil(TT, i,j,k) )
      &                              + alpha * a(i,j,k)
             enddo
@@ -177,7 +177,7 @@ c
       return
       end
 c
-c     
+c
       recursive subroutine celldiffusionv2diag3d(
      &  ifirst0,ifirst1,ifirst2,
      &  ilast0,ilast1,ilast2,
@@ -199,11 +199,11 @@ c
       do k = ifirst2, ilast2
          do j = ifirst1, ilast1
             do i = ifirst0, ilast0
-               stencil(PP, i,j,k) = -(stencil(WW, i,j,k) 
-     &                              + stencil(EE, i,j,k) 
-     &                              + stencil(SS, i,j,k) 
+               stencil(PP, i,j,k) = -(stencil(WW, i,j,k)
+     &                              + stencil(EE, i,j,k)
+     &                              + stencil(SS, i,j,k)
      &                              + stencil(NN, i,j,k)
-     &                              + stencil(BB, i,j,k) 
+     &                              + stencil(BB, i,j,k)
      &                              + stencil(TT, i,j,k) )
      &                              + alpha
             enddo
@@ -213,7 +213,7 @@ c
       return
       end
 c
-c     
+c
       recursive subroutine cellpoissondiag3d(
      &  ifirst0,ifirst1,ifirst2,
      &  ilast0,ilast1,ilast2,
@@ -227,18 +227,18 @@ c
       REAL stencil(0:6,CELL3d(ifirst,ilast,sgcw))
       integer i,j,k
 
-c     
+c
 c***********************************************************************
 c
 
       do k = ifirst2, ilast2
          do j = ifirst1, ilast1
             do i = ifirst0, ilast0
-               stencil(PP, i,j,k) = -(stencil(WW, i,j,k) 
-     &                              + stencil(EE, i,j,k) 
-     &                              + stencil(SS, i,j,k) 
+               stencil(PP, i,j,k) = -(stencil(WW, i,j,k)
+     &                              + stencil(EE, i,j,k)
+     &                              + stencil(SS, i,j,k)
      &                              + stencil(NN, i,j,k)
-     &                              + stencil(BB, i,j,k) 
+     &                              + stencil(BB, i,j,k)
      &                              + stencil(TT, i,j,k) )
             enddo
          enddo
@@ -279,7 +279,7 @@ c
       REAL stencil(0:6,CELL3d(ifirst,ilast,sgcw))
       integer i,j,k
       integer ie0,ie1,ie2
-      
+
       REAL factor
       REAL b, h
 c
@@ -319,7 +319,7 @@ c
                   stencil(PP,ie0,j,k)=stencil(PP,ie0,j,k)-factor
                 enddo
               enddo
-            endif         
+            endif
           endif
         elseif (direction.eq.1) then
           ie1 = pfirst1-2*side+1
@@ -352,7 +352,7 @@ c
                   stencil(PP,i,ie1,k)=stencil(PP,i,ie1,k)-factor
                 enddo
               enddo
-            endif         
+            endif
           endif
         elseif (direction.eq.2) then
           ie2 = pfirst2-2*side+1
@@ -385,7 +385,7 @@ c
                   stencil(PP,i,j,ie2)=stencil(PP,i,j,ie2)-factor
                 enddo
               enddo
-            endif         
+            endif
           endif
         endif
       elseif (bdrytype.eq.NEUMANN) then
@@ -436,8 +436,8 @@ c
             enddo
           endif
         endif
-      endif         
-      
+      endif
+
       return
       end
 
@@ -465,7 +465,7 @@ c
       integer sgcw
       REAL stencil(0:6,CELL3d(ifirst,ilast,sgcw))
       integer i,j,k,ie0,ie1,ie2
-      
+
       REAL factor
       REAL b, h
 c
@@ -505,7 +505,7 @@ c
                   stencil(PP,ie0,j,k)=stencil(PP,ie0,j,k)-factor
                 enddo
               enddo
-            endif         
+            endif
           endif
         elseif (direction.eq.1) then
           ie1 = pfirst1-2*side+1
@@ -538,7 +538,7 @@ c
                   stencil(PP,i,ie1,k)=stencil(PP,i,ie1,k)-factor
                 enddo
               enddo
-            endif         
+            endif
           endif
         elseif (direction.eq.2) then
           ie2 = pfirst2-2*side+1
@@ -571,7 +571,7 @@ c
                   stencil(PP,i,j,ie2)=stencil(PP,i,j,ie2)-factor
                 enddo
               enddo
-            endif         
+            endif
           endif
         endif
       elseif (bdrytype.eq.NEUMANN) then
@@ -622,7 +622,7 @@ c
             enddo
           endif
         endif
-      endif         
+      endif
       return
       end
 
@@ -648,7 +648,7 @@ c
      &  direction, side,
      &  interporder
       integer r
-      REAL 
+      REAL
      &  dx(0:NDIM-1), beta
       REAL
      &  b0(FACE3d0(ifirst,ilast,0)),
@@ -657,13 +657,13 @@ c
       integer sgcw
       REAL stencil(0:6,CELL3d(ifirst,ilast,sgcw))
       integer i,j,k,ie0,ie1,ie2,edge
-      
+
       REAL factor
       REAL h
 
       REAL dr,dr1
 
-c r is the refinement ratio, convert to double precision      
+c r is the refinement ratio, convert to double precision
       dr = dfloat(r)
       dr1=2.0*(dr-1.0)/(dr+1.0)
 c
@@ -719,13 +719,13 @@ c
          else if (interporder .eq. 2) then
             do j = pfirst1, plast1
                do i = pfirst0, plast0
-                  factor=dr1*beta*b1(edge,i,j)/(h**2)
+                  factor=dr1*beta*b2(edge,i,j)/(h**2)
                   stencil(PP,i,j,ie2)=stencil(PP,i,j,ie2)-factor
                enddo
             enddo
          endif
       endif
-      
+
       return
       end
 c
@@ -754,11 +754,11 @@ c
       integer sgcw
       REAL stencil(0:6,CELL3d(ifirst,ilast,sgcw))
       integer i,j,k,ie0,ie1,ie2
-      
+
       REAL factor
       REAL h
       REAL dr,dr1
-c r is the refinement ratio, convert to double precision      
+c r is the refinement ratio, convert to double precision
       dr = dfloat(r)
       dr1=2.0*(dr-1.0)/(dr+1.0)
 c
@@ -817,7 +817,7 @@ c
             enddo
          endif
       endif
-      
+
       return
       end
 c
@@ -831,7 +831,7 @@ c
      &  bdrytype,
      &  extrapOrder,
      &  dx,
-     &  dirfactor, neufactor, 
+     &  dirfactor, neufactor,
      &  beta,
      &  b0, b1, b2,
      &  sgcw,
@@ -879,10 +879,10 @@ c
                   factor=beta*b0(ie0,j,k)
                   factor=factor/(h*(3.0*h+16.0*b0(ie0,j,k)))
                   stencil(WW,ie0,j,k)=-9.0*factor
-                  stencil(EE,ie0,j,k)=stencil(EE,ie0,j,k)-factor 
+                  stencil(EE,ie0,j,k)=stencil(EE,ie0,j,k)-factor
                 enddo
               enddo
-            endif                 
+            endif
           else
             if(extrapOrder.eq.1) then
               do k = pfirst2, plast2
@@ -918,10 +918,10 @@ c
                   factor=beta*b1(ie1,k,i)
                   factor=factor/(h*(3.0*h+16.0*b1(ie1,k,i)))
                   stencil(SS,i,ie1,k)=-9.0*factor
-                  stencil(NN,i,ie1,k)=stencil(NN,i,ie1,k)-factor 
+                  stencil(NN,i,ie1,k)=stencil(NN,i,ie1,k)-factor
                 enddo
               enddo
-            endif                 
+            endif
           else
             if(extrapOrder.eq.1) then
               do k = pfirst2, plast2
@@ -936,7 +936,7 @@ c
                   factor=beta*b1(ie1,k,i)
                   factor=factor/(h*(3.0*h+16.0*b1(ie1,k,i)))
                   stencil(NN,i,ie1-1,k)=-9.0*factor
-                  stencil(SS,1,ie1-1,k)=stencil(SS,i,ie1-1,k)-factor
+                  stencil(SS,i,ie1-1,k)=stencil(SS,i,ie1-1,k)-factor
                 enddo
               enddo
             endif
@@ -957,10 +957,10 @@ c
                   factor=beta*b2(ie2,i,j)
                   factor=factor/(h*(3.0*h+16.0*b2(ie2,i,j)))
                   stencil(BB,i,j,ie2)=-9.0*factor
-                  stencil(TT,i,j,ie2)=stencil(TT,i,j,ie2)-factor 
+                  stencil(TT,i,j,ie2)=stencil(TT,i,j,ie2)-factor
                 enddo
               enddo
-            endif                 
+            endif
           else
             if(extrapOrder.eq.1) then
               do j = pfirst1, plast1
@@ -975,7 +975,7 @@ c
                   factor=beta*b2(ie2,i,j)
                   factor=factor/(h*(3.0*h+16.0*b2(ie2,i,j)))
                   stencil(TT,i,j,ie2-1)=-9.0*factor
-                  stencil(BB,1,j,ie2-1)=stencil(BB,i,j,ie2-1)-factor
+                  stencil(BB,i,j,ie2-1)=stencil(BB,i,j,ie2-1)-factor
                 enddo
               enddo
             endif
@@ -986,7 +986,7 @@ c
          if (direction.eq.0) then
            ie0 = pfirst0-side+1
            if( side. eq. 0) then
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do k = pfirst2, plast2
                  do j = pfirst1, plast1
                    stencil(WW,ie0,j,k) = stencil(WW,ie0,j,k)*factor
@@ -1000,10 +1000,10 @@ c
      &                                   +stencil(WW,ie0,j,k)/3.0
                     stencil(WW,ie0,j,k) = 8.0*stencil(WW,ie0,j,k)/3.0
                   enddo
-                enddo                     
+                enddo
              endif
            else
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do k = pfirst2, plast2
                  do j = pfirst1, plast1
                    stencil(EE,ie0-1,j,k) = stencil(EE,ie0-1,j,k)*factor
@@ -1023,12 +1023,12 @@ c
          elseif (direction.eq.1) then
            ie1 = pfirst1-side+1
            if( side .eq. 0) then
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do k = pfirst2, plast2
                  do i = pfirst0, plast0
                     stencil(SS,i,ie1,k) = stencil(SS,i,ie1,k)*factor
                  enddo
-               enddo               
+               enddo
              else if(extrapOrder.eq.2) then
                do k = pfirst2, plast2
                  do i = pfirst0, plast0
@@ -1036,10 +1036,10 @@ c
      &                                +stencil(SS,i,ie1,k)/3.0
                    stencil(SS,i,ie1,k)=8.0*stencil(SS,i,ie1,k)/3.0
                  enddo
-               enddo               
+               enddo
              endif
            else
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do k = pfirst2, plast2
                  do i = pfirst0, plast0
                     stencil(NN,i,ie1-1,k) = stencil(NN,i,ie1-1,k)*factor
@@ -1058,12 +1058,12 @@ c
          elseif (direction.eq.2) then
            ie2 = pfirst2-side+1
            if( side .eq. 0) then
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do j = pfirst1, plast1
                  do i = pfirst0, plast0
                     stencil(BB,i,j,ie2) = stencil(BB,i,j,ie2)*factor
                  enddo
-               enddo               
+               enddo
              else if(extrapOrder.eq.2) then
                do j = pfirst1, plast1
                  do i = pfirst0, plast0
@@ -1071,10 +1071,10 @@ c
      &                                +stencil(BB,i,j,ie2)/3.0
                    stencil(BB,i,j,ie2)=8.0*stencil(BB,i,j,ie2)/3.0
                  enddo
-               enddo               
+               enddo
              endif
            else
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do j = pfirst1, plast1
                  do i = pfirst0, plast0
                     stencil(TT,i,j,ie2-1) = stencil(TT,i,j,ie2-1)*factor
@@ -1104,7 +1104,7 @@ c
                do k = pfirst2, plast2
                   do j = pfirst1, plast1
                      stencil(EE,ie0-1,j,k) = 0.0d0
-                  enddo                  
+                  enddo
                enddo
             endif
          elseif (direction.eq.1) then
@@ -1138,8 +1138,8 @@ c
                enddo
             endif
          endif
-      endif      
-c     
+      endif
+c
       return
       end
 c
@@ -1152,7 +1152,7 @@ c
      &  bdrytype,
      &  extrapOrder,
      &  dx,
-     &  dirfactor, neufactor, 
+     &  dirfactor, neufactor,
      &  beta,
      &  sgcw,
      &  stencil)
@@ -1176,7 +1176,7 @@ c***********************************************************************
 c
 c for now we will only do the dir=0 robin boundary conditions
 c we will also assume homogenous boundary conditions for now
-c     
+c
       h=dx(direction)
 
       if (bdrytype.eq.ROBIN) then
@@ -1195,10 +1195,10 @@ c
               do k = pfirst2, plast2
                 do j = pfirst1, plast1
                   stencil(WW,ie0,j,k)=-9.0*factor
-                  stencil(EE,ie0,j,k)=stencil(EE,ie0,j,k)-factor 
+                  stencil(EE,ie0,j,k)=stencil(EE,ie0,j,k)-factor
                 enddo
               enddo
-            endif                 
+            endif
           else
             if(extrapOrder.eq.1) then
               factor=2.0*h/(4.0+h)
@@ -1232,10 +1232,10 @@ c
               do k = pfirst2, plast2
                 do i = pfirst0, plast0
                   stencil(SS,i,ie1,k)=-9.0*factor
-                  stencil(NN,i,ie1,k)=stencil(NN,i,ie1,k)-factor 
+                  stencil(NN,i,ie1,k)=stencil(NN,i,ie1,k)-factor
                 enddo
               enddo
-            endif                 
+            endif
           else
             if(extrapOrder.eq.1) then
               factor=2.0*h/(4.0+h)
@@ -1249,7 +1249,7 @@ c
               do k = pfirst2, plast2
                 do i = pfirst0, plast0
                   stencil(NN,i,ie1-1,k)=-9.0*factor
-                  stencil(SS,1,ie1-1,k)=stencil(SS,i,ie1-1,k)-factor
+                  stencil(SS,i,ie1-1,k)=stencil(SS,i,ie1-1,k)-factor
                 enddo
               enddo
             endif
@@ -1269,10 +1269,10 @@ c
               do j = pfirst1, plast1
                 do i = pfirst0, plast0
                   stencil(BB,i,j,ie2)=-9.0*factor
-                  stencil(TT,i,j,ie2)=stencil(TT,i,j,ie2)-factor 
+                  stencil(TT,i,j,ie2)=stencil(TT,i,j,ie2)-factor
                 enddo
               enddo
-            endif                 
+            endif
           else
             if(extrapOrder.eq.1) then
               factor=2.0*h/(4.0+h)
@@ -1286,7 +1286,7 @@ c
               do j = pfirst1, plast1
                 do i = pfirst0, plast0
                   stencil(TT,i,j,ie2-1)=-9.0*factor
-                  stencil(BB,1,j,ie2-1)=stencil(BB,i,j,ie2-1)-factor
+                  stencil(BB,i,j,ie2-1)=stencil(BB,i,j,ie2-1)-factor
                 enddo
               enddo
             endif
@@ -1297,7 +1297,7 @@ c
          if (direction.eq.0) then
            ie0 = pfirst0-side+1
            if( side. eq. 0) then
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do k = pfirst2, plast2
                  do j = pfirst1, plast1
                    stencil(WW,ie0,j,k) = stencil(WW,ie0,j,k)*factor
@@ -1310,10 +1310,10 @@ c
      &                                   +stencil(WW,ie0,j,k)/3.0
                     stencil(WW,ie0,j,k) = 8.0*stencil(WW,ie0,j,k)/3.0
                   enddo
-                enddo                     
+                enddo
              endif
            else
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do k = pfirst2, plast2
                  do j = pfirst1, plast1
                    stencil(EE,ie0-1,j,k) = stencil(EE,ie0-1,j,k)*factor
@@ -1332,12 +1332,12 @@ c
          elseif (direction.eq.1) then
            ie1 = pfirst1-side+1
            if( side .eq. 0) then
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do k = pfirst2, plast2
                  do i = pfirst0, plast0
                     stencil(SS,i,ie1,k) = stencil(SS,i,ie1,k)*factor
                  enddo
-               enddo               
+               enddo
              else if(extrapOrder.eq.2) then
                do k = pfirst2, plast2
                  do i = pfirst0, plast0
@@ -1345,10 +1345,10 @@ c
      &                                +stencil(SS,i,ie1,k)/3.0
                    stencil(SS,i,ie1,k)=8.0*stencil(SS,i,ie1,k)/3.0
                  enddo
-               enddo               
+               enddo
              endif
            else
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do k = pfirst2, plast2
                  do i = pfirst0, plast0
                     stencil(NN,i,ie1-1,k) = stencil(NN,i,ie1-1,k)*factor
@@ -1367,12 +1367,12 @@ c
          elseif (direction.eq.2) then
            ie2 = pfirst2-side+1
            if( side .eq. 0) then
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do j = pfirst1, plast1
                  do i = pfirst0, plast0
                     stencil(BB,i,j,ie2) = stencil(BB,i,j,ie2)*factor
                  enddo
-               enddo               
+               enddo
              else if(extrapOrder.eq.2) then
                do j = pfirst1, plast1
                  do i = pfirst0, plast0
@@ -1380,10 +1380,10 @@ c
      &                                +stencil(BB,i,j,ie2)/3.0
                    stencil(BB,i,j,ie2)=8.0*stencil(BB,i,j,ie2)/3.0
                  enddo
-               enddo               
+               enddo
              endif
            else
-             if(extrapOrder.eq.1) then                    
+             if(extrapOrder.eq.1) then
                do j = pfirst1, plast1
                  do i = pfirst0, plast0
                     stencil(TT,i,j,ie2-1) = stencil(TT,i,j,ie2-1)*factor
@@ -1413,7 +1413,7 @@ c
                do k = pfirst2, plast2
                   do j = pfirst1, plast1
                      stencil(EE,ie0-1,j,k) = 0.0d0
-                  enddo                  
+                  enddo
                enddo
             endif
          elseif (direction.eq.1) then
@@ -1447,7 +1447,7 @@ c
                enddo
             endif
          endif
-      endif      
+      endif
 
       return
       end
@@ -1479,9 +1479,9 @@ c
       integer offset
       REAL dr
 
-c r is the refinement ratio, convert to double precision      
+c r is the refinement ratio, convert to double precision
       dr = dfloat(r)
-c     
+c
 c***********************************************************************
       offset=1-2*side
       if (direction.eq.0) then
@@ -1503,7 +1503,7 @@ c***********************************************************************
                   enddo
                enddo
             endif
-         else 
+         else
             if(interporder .eq. 1) then
                do k = cfirst2, clast2
                   do j = cfirst1, clast1

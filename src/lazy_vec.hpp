@@ -21,14 +21,4 @@ struct lazy_vec_cuda {
                      const T* u,
                      const int& rgcw,
                      T* res);
-
-
-    static void grad_x(const int& i0,
-                       const int& i1,
-                       const T& beta,
-                       const T* dx,
-                       const int ugcw,
-                       const T* u,
-                       const int& rgcw,
-                       T* res);
 };

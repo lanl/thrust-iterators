@@ -4,8 +4,6 @@
 
 #include <thrust/advance.h>
 #include <thrust/distance.h>
-#include <thrust/iterator/iterator_facade.h>
-#include <thrust/iterator/iterator_traits.h>
 
 #include "forward_stencil_iterator.hpp"
 #include "transpose_iterator.hpp"
@@ -29,13 +27,13 @@ __host__ __device__ bool equal(const T (&x)[N], const T (&y)[N])
 
 } // namespace detail
 
-template <typename Iter, auto N>
+template <typename Iter, auto N, typename Val, typename Ref>
 struct matrix_traversal_iterator
-    : thrust::iterator_facade<matrix_traversal_iterator<Iter, N>,
-                              typename thrust::iterator_value<Iter>::type,
+    : thrust::iterator_facade<matrix_traversal_iterator<Iter, N, Val, Ref>,
+                              Val,
                               typename thrust::iterator_system<Iter>::type,
                               typename thrust::iterator_traversal<Iter>::type,
-                              typename thrust::iterator_reference<Iter>::type> {
+                              Ref> {
     using diff_t = thrust::iterator_difference_t<Iter>;
 
 public:
@@ -81,33 +79,37 @@ public:
         return make_forward_stencil(*this, stride, limit, sz);
     }
 
-    __host__ __device__ auto istencil() { return stencil(N - 1); }
-    __host__ __device__ auto jstencil() { return stencil(N - 2); }
-    __host__ __device__ auto kstencil() { return stencil(N - 3); }
-    // The baseline format is c-ordering of 0, 1, 2
-    template <auto... I>
-    __host__ __device__ auto transpose()
-    {
-        return make_transpose<I...>(*this, n);
-    }
+    // __host__ __device__ auto istencil() { return stencil(N - 1); }
+    // __host__ __device__ auto jstencil() { return stencil(N - 2); }
+    // __host__ __device__ auto kstencil() { return stencil(N - 3); }
+    // // The baseline format is c-ordering of 0, 1, 2
+    // template <auto... I>
+    // __host__ __device__ auto transpose()
+    // {
+    //     return make_transpose<I...>(*this, n);
+    // }
 
-    // permutes from 0, 1 -> 1, 0
-    __host__ __device__ auto ij() { return this->transpose<1, 0>(); }
+    // // permutes from 0, 1 -> 1, 0
+    // __host__ __device__ auto ij() { return this->transpose<1, 0>(); }
 
-    __host__ __device__ auto ikj() { return this->transpose<2, 0, 1>(); }
-    __host__ __device__ auto jik() { return this->transpose<1, 2, 0>(); }
+    // __host__ __device__ auto ikj() { return this->transpose<2, 0, 1>(); }
+    // __host__ __device__ auto jik() { return this->transpose<1, 2, 0>(); }
 
 private:
     friend class thrust::iterator_core_access;
-    template <typename, auto>
+    template <typename, auto, typename, typename>
     friend class matrix_traversal_iterator;
 
-    __host__ __device__ typename thrust::iterator_reference<Iter>::type
+    __host__ __device__ Ref // typename thrust::iterator_reference<Iter>::type
     dereference() const
     {
         diff_t o = 0;
         for (int j = 0; j < N; j++) o += stride[j] * current[j];
-        return *(first + o);
+
+        if constexpr (std::is_same_v<Ref, typename thrust::iterator_reference_t<Iter>>)
+            return *(first + o);
+        else
+            return first + o;
     }
 
     template <typename Other>

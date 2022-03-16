@@ -1,8 +1,10 @@
 #pragma once
 
+#include "traits.hpp"
+
 #include "forward_stencil_iterator.hpp"
 #include "thrust/iterator/zip_iterator.h"
-#include "traits.hpp"
+
 #include <thrust/functional.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <type_traits>
@@ -118,7 +120,9 @@ private:
     // can't use auto for the return type since the functions then have the same
     // signature, triggering a redeclaration error
 #define LAZY_VEC_OPERATORS(op, nextOp)                                                   \
-    template <typename U, typename V, typename = std::enable_if_t<is_similar_v<T, U>>>   \
+    template <typename U,                                                                \
+              typename V,                                                                \
+              typename = std::enable_if_t<is_similar_v<T, U> && !is_stencil_proxy_v<V>>> \
     constexpr friend transform_op<boost::copy_cv_ref_t<T, U>,                            \
                                   arithmetic_by_value_t<V>,                              \
                                   nextOp>                                                \

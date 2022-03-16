@@ -1,11 +1,12 @@
 #pragma once
 
-#include "md_lazy_vector.hpp"
 #include <boost/mp11.hpp>
 #include <boost/type_traits/copy_cv_ref.hpp>
 #include <cstddef>
 #include <type_traits>
 #include <utility>
+
+#include <thrust/tuple.h>
 
 #define FWD(x) static_cast<decltype(x)&&>(x)
 #define MOVE(x) static_cast<std::remove_reference_t<decltype(x)>&&>(x)
@@ -75,6 +76,25 @@ template <typename T>
 static constexpr auto is_dir_bounds_v = detail::is_dir_bounds<un_cvref_t<T>>::value;
 
 //
+// trait for lazy_vec_math
+//
+namespace lazy
+{
+template <typename>
+struct lazy_vec_math;
+}
+
+namespace detail
+{
+template <typename T>
+struct is_lazy_vec_math : std::is_base_of<lazy::lazy_vec_math<T>, T> {
+};
+} // namespace detail
+
+template <typename T>
+static constexpr auto is_lazy_vec_math_v = detail::is_lazy_vec_math<un_cvref_t<T>>::value;
+
+//
 // traits for assign_proxy
 //
 namespace lazy
@@ -96,6 +116,149 @@ struct is_assign_proxy<lazy::assign_proxy<U, V>> : std::true_type {
 
 template <typename T>
 static constexpr auto is_assign_proxy_v = detail::is_assign_proxy<un_cvref_t<T>>::value;
+
+//
+// traits for stencil_assign_proxy
+//
+namespace lazy
+{
+template <auto, typename>
+struct stencil_assign_proxy;
+}
+
+namespace detail
+{
+template <typename>
+struct is_rhs_number : std::false_type {
+};
+
+template <auto N, typename T>
+struct is_rhs_number<lazy::stencil_assign_proxy<N, T>>
+    : std::is_arithmetic<un_cvref_t<T>> {
+};
+} // namespace detail
+
+template <typename T>
+static constexpr auto is_rhs_number_v = detail::is_rhs_number<un_cvref_t<T>>::value;
+
+//
+// traits for stencil_proxy -> needed for capturing base case of stencil_proxy<1>
+//
+namespace lazy
+{
+template <int N, typename = void, typename = void, typename = void>
+struct stencil_proxy;
+}
+
+namespace detail
+{
+template <typename>
+struct is_base_stencil_proxy : std::false_type {
+};
+
+template <>
+struct is_base_stencil_proxy<lazy::stencil_proxy<0>> : std::true_type {
+};
+
+template <typename>
+struct is_stencil_proxy : std::false_type {
+};
+
+template <int N, typename U, typename V, typename Op>
+struct is_stencil_proxy<lazy::stencil_proxy<N, U, V, Op>> : std::true_type {
+};
+
+template <typename>
+struct proxy_index;
+
+template <int N, typename U, typename V, typename Op>
+struct proxy_index<lazy::stencil_proxy<N, U, V, Op>> {
+    static constexpr int value = N;
+};
+} // namespace detail
+
+template <typename T>
+static constexpr auto is_base_stencil_proxy_v =
+    detail::is_base_stencil_proxy<un_cvref_t<T>>::value;
+
+template <typename T>
+static constexpr auto is_stencil_proxy_v = detail::is_stencil_proxy<un_cvref_t<T>>::value;
+
+template <typename T>
+static constexpr auto proxy_index_v = detail::proxy_index<un_cvref_t<T>>::value;
+
+//
+// combining proxies in our system requires enforcing certain ground rules
+// 1. Baseline stencil_proxy start with an index (first template parameter) of 0
+// 2. Combining 2 proxyies with 0 index results in a 0 index
+// 3. Combining a proxy with index `N` and a number results in a `N` index
+// 4. Combining a proxy with index `N` and a lazy_vec results in `N+1` index
+// 5. Combining proxies with 0 and `N` index results in an `N` index
+// 6. Combining 2 proxies with non-zero index is an error
+//
+
+namespace detail
+{
+template <typename U, typename V>
+struct next_proxy_index {
+    static_assert(is_stencil_proxy_v<U> || is_stencil_proxy_v<V>);
+
+    static constexpr auto index()
+    {
+        if constexpr (is_stencil_proxy_v<U>) {
+            constexpr auto u = proxy_index_v<U>;
+            if constexpr (is_stencil_proxy_v<V>) {
+                constexpr auto v = proxy_index_v<V>;
+                return v > u ? v : u;
+            } else if constexpr (is_number_v<V>) {
+                return u;
+            } else if constexpr (is_lazy_vec_math_v<V>) {
+                return u + 1;
+            } else if constexpr (true) {
+                static_assert(true, "how did we get here?");
+            }
+        } else {
+            constexpr auto v = proxy_index_v<V>;
+            if constexpr (is_number_v<U>) {
+                return v;
+            } else if constexpr (is_lazy_vec_math_v<U>) {
+                return v + 1;
+            } else if constexpr (true) {
+                static_assert(true, "how did we get here?");
+            }
+        }
+    }
+};
+
+} // namespace detail
+
+template <typename X, typename Y>
+static constexpr int
+    next_proxy_index_v = detail::next_proxy_index<un_cvref_t<X>, un_cvref_t<Y>>::index();
+
+//
+// traits for self_assign_proxy
+//
+namespace lazy
+{
+template <typename, typename>
+struct self_assign_proxy;
+}
+
+namespace detail
+{
+template <typename T>
+struct is_self_assign_proxy : std::false_type {
+};
+
+template <typename U, typename V>
+struct is_self_assign_proxy<lazy::self_assign_proxy<U, V>> : std::true_type {
+};
+} // namespace detail
+
+template <typename T>
+static constexpr auto is_self_assign_proxy_v =
+    detail::is_self_assign_proxy<un_cvref_t<T>>::value;
 
 //
 // traits for ensuring arithmetic values are by-value for transform_op
@@ -181,3 +344,21 @@ static constexpr int shift_v = select_shift<S, X, Y>::type::value;
 //
 template <typename T, typename U>
 static constexpr auto is_similar_v = std::is_same_v<un_cvref_t<T>, un_cvref_t<U>>;
+
+//
+// trait for identifying thrust tuple or pair
+//
+namespace detail
+{
+template <typename, typename = std::void_t<>>
+struct is_tuple : std::false_type {
+};
+
+template <typename T>
+struct is_tuple<T, std::void_t<decltype(thrust::get<0>(std::declval<T>()))>>
+    : std::true_type {
+};
+} // namespace detail
+
+template <typename T>
+static constexpr auto is_tuple_v = detail::is_tuple<un_cvref_t<T>>::value;

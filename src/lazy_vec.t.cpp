@@ -88,3 +88,37 @@ TEST_CASE("init2")
         }
     REQUIRE_THAT(res.vec(), Approx(expected));
 }
+
+// TEST_CASE("stencil")
+// {
+//     using T = double;
+//     using vec = md_host_vector<T, 2>;
+//     randomize();
+
+//     const int i0 = 3, i1 = 8, j0 = 4, j1 = 12;
+//     const int ugcw = pick(1, 3);
+//     const int rgcw = pick(ugcw, 2 * ugcw);
+//     const double beta = f();
+
+//     vec u(B{i0 - ugcw, i1 + ugcw}, B{j0 - ugcw, j1 + ugcw});
+//     vec res(B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
+
+//     std::generate(u.begin(), u.end(), f);
+//     lazy_vec_cuda<T>::stencil(i0, i1, j0, j1, beta, ugcw, u.data(), rgcw, res.data());
+
+//     std::vector<T> expected(res.size());
+//     const auto& uv = u.vec();
+
+//     int udims[] = {j1 + ugcw - (j0 - ugcw) + 1, i1 + ugcw - (i0 - ugcw) + 1};
+//     int rdims[] = {i1 + rgcw - (i0 - rgcw) + 1, j1 + rgcw - (j0 - rgcw) + 1};
+
+//     for (int j = j0; j <= j1; j++)
+//         for (int i = i0; i <= i1; i++) {
+//             int ui = i - (i0 - ugcw), uj = j - (j0 - ugcw);
+//             int ri = i - (i0 - rgcw), rj = j - (j0 - rgcw);
+//             auto st_x = (uv[(ui + 1) * udims[0] + uj] + uv[ui * udims[0] + uj]);
+//             auto st_y = (uv[ui * udims[0] + uj + 1] + uv[ui * udims[0] + uj]);
+//             expected[rj * rdims[0] + ri] = beta * (st_x + st_y);
+//         }
+//     REQUIRE_THAT(res.vec(), Approx(expected));
+// }

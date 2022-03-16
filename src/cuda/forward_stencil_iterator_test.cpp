@@ -90,6 +90,8 @@ void forward_stencil_test_cuda<T, N, I>::transform(const T* v, const int (&dims)
     assert(thrust::distance(s, s + u_sz) == u_sz);
     thrust::transform(s, s + u_sz, y.begin(), gg<T>{});
     thrust::copy(y.begin(), y.end(), u);
+
+    auto z = 3 + (*s) * 4.0;
 }
 
 template struct forward_stencil_test_cuda<double, 1, 0>;
