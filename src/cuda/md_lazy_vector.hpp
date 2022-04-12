@@ -174,7 +174,10 @@ struct assign_proxy {
     void operator()(Bnds&&... bnds)
     {
         auto out = u(bnds...);
-        thrust::copy_n(thrust::device, v(FWD(bnds)...), out.size(), out);
+        if constexpr (is_number_v<V>)
+            thrust::fill_n(thrust::device, out, out.size(), v);
+        else
+            thrust::copy_n(thrust::device, v(FWD(bnds)...), out.size(), out);
     }
 };
 
@@ -462,6 +465,22 @@ public:
     }
 
     auto shift_z(int s = 1) { return lazy::make_shift_transform<lazy::dim::K>(*this, s); }
+
+    // corner shifts
+    auto shift_xy(int xs = 1, int ys = 1)
+    {
+        return lazy::make_shift_transform<lazy::dim::J>(shift_x(xs), ys);
+    }
+
+    auto shift_xz(int xs = 1, int zs = 1)
+    {
+        return lazy::make_shift_transform<lazy::dim::K>(shift_x(xs), zs);
+    }
+
+    auto shift_yz(int ys = 1, int zs = 1)
+    {
+        return lazy::make_shift_transform<lazy::dim::K>(shift_y(ys), zs);
+    }
 
     __host__ __device__ auto size() const { return v.size(); }
 

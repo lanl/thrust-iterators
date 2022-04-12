@@ -12,6 +12,9 @@ if (USE_CUDA)
 endif()
 
 add_library(cuda_kernels
+  cuda/cd_correct_bc_1d_cuda.cpp
+  cuda/cd_correct_bc_2d_cuda.cpp
+  cuda/cd_correct_bc_3d_cuda.cpp
   cuda/cd_stencil_1d_cuda.cpp
   cuda/cd_stencil_2d_cuda.cpp
   cuda/cd_stencil_3d_cuda.cpp
@@ -41,6 +44,10 @@ add_unit_test(lazy_vec "iterator" cuda_it random)
 add_unit_test(cd_stencil_1d "coeffs" f77_kernels cuda_kernels random)
 add_unit_test(cd_stencil_2d "coeffs" f77_kernels cuda_kernels random)
 add_unit_test(cd_stencil_3d "coeffs" f77_kernels cuda_kernels random)
+
+add_unit_test(cd_correct_bc_1d "bc" f77_kernels cuda_kernels random)
+add_unit_test(cd_correct_bc_2d "bc" f77_kernels cuda_kernels random)
+add_unit_test(cd_correct_bc_3d "bc" f77_kernels cuda_kernels random)
 
 add_unit_test(cd_flux_1d "flux" f77_kernels cuda_kernels random)
 add_unit_test(cd_flux_2d "flux" f77_kernels cuda_kernels random)
