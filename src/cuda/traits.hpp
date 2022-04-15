@@ -78,6 +78,9 @@ static constexpr auto is_dir_bounds_v = detail::is_dir_bounds<un_cvref_t<T>>::va
 //
 // trait for lazy_vec_math
 //
+template <typename, auto...>
+struct lazy_vector;
+
 namespace lazy
 {
 template <typename>
@@ -328,6 +331,13 @@ struct transpose_sequence {
 
 template <typename From, typename To>
 using transpose_sequence_t = typename transpose_sequence<From, To>::type;
+
+//
+// Utilities for finding the "missing" dimension for coarse_to_fine
+//
+template <typename Fine, typename Coarse>
+static constexpr auto missing_index_v =
+    mp::mp_front<mp::mp_set_difference<Fine, Coarse>>::value;
 
 //
 // Utilities for computing the up/down shift needed for gradients

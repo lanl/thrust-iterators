@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "submatrix_iterator.hpp"
+#include "coarse_to_fine_iterator.hpp"
 
 //
 // Machinery for a multidimensional lazy vector class.  The purpose is to allow us to
@@ -246,6 +247,27 @@ shift_helper<Vec, N> make_shift_transform(Vec&& vec, int s)
     return {FWD(vec), s};
 }
 
+template <typename T>
+struct coarse_helper : lazy_vec_math<coarse_helper<T>> {
+    T t;
+    int r;
+
+    coarse_helper(T&& t) : t{FWD(t)} {}
+
+    template <auto... F>
+    constexpr auto operator()(dir_bounds<F>... fbnds)
+    {
+        return t.coarse_to_fine(fbnds...);
+    }
+};
+
+template <typename T, auto... Order, auto... O>
+auto make_coarse_transform(lazy_vector<T, Order...>& v,
+                           int ratio,
+                           dir_bounds<O>... coarse_bnds)
+{
+}
+
 } // namespace lazy
 
 //
@@ -422,7 +444,21 @@ public:
     // call operator taking an int needs to return a function which takes the windowed
     // iterator and returns a reference to the thing
     auto operator()(int i) { return lazy::stencil_proxy<0>{i}; }
-    auto operator()(int i1, int i2) { return lazy::stencil_proxy<2>{i1, i2}; }
+    auto operator()(int i1, int i2) { return lazy::stencil_proxy<1>{i1, i2}; }
+
+    template <typename... Ints, typename = std::enable_if_t<(is_number_v<Ints> && ...)>>
+    decltype(auto) at(Ints... is)
+    {
+        static_assert(sizeof...(Ints) == N);
+        int c[] = {is...};
+        int sz[N];
+
+        for (int i = 0; i < N; i++) {
+            c[i] -= b[i].lb();
+            sz[i] = b[i].size();
+        }
+        return *(begin() + ravel<N>(sz, c));
+    }
 
     template <int S = 1>
     auto grad_x(T h, mp::mp_int<S> = {})
@@ -490,6 +526,52 @@ public:
     auto window()
     {
         return [this](auto&&... bnds) mutable { return (*this)(FWD(bnds)...); };
+    }
+
+    //
+    // coarse_to_fine
+    //
+    template <auto... O>
+    auto fine(int r, lazy::dir_bounds<O>... bnds)
+    {
+        assert((bnds.size() == 1) && ...);
+        return [this, r, bnds...](auto&&... fbnds) mutable {
+            return coarse_to_fine(r, std::tuple{bnds...}, fbnds...);
+        };
+    }
+
+    template <auto... CO, auto... FO>
+    auto coarse_to_fine(int r,
+                        std::tuple<lazy::dir_bounds<CO>...> cbnds,
+                        lazy::dir_bounds<FO>... fbnds)
+    {
+        static_assert(sizeof...(CO) + 1 == sizeof...(FO));
+
+        // Determine the dimension we are iterating over:
+        using Coarse = index_list<CO...>;
+        using Fine = index_list<FO...>;
+        using Base = index_list<Order...>;
+        static constexpr auto I = missing_index_v<Fine, Coarse>;
+
+        // Extract the fine index lower bound
+        std::tuple<lazy::dir_bounds<FO>&...> f{fbnds...};
+        int fi = std::get<map_index_v<Fine, I>>(f).lb();
+
+        // Put coarse lower bounds in Order....
+        int lb_bnds[N] = {std::get<map_index_v<Coarse, CO>>(cbnds).lb()...};
+        int lb[] = {lb_bnds[map_index_v<Coarse, Order>]...};
+
+        // Insert baseline coarse index and make them zero based
+        lb[map_index_v<Base, I>] = detail::coarse_index(r, fi);
+
+        int sz[N];
+
+        for (int i = 0; i < N; i++) {
+            lb[i] -= b[i].lb();
+            sz[i] = b[i].size();
+        }
+
+        return make_coarse_to_fine<map_index_v<Base, I>, N>(begin(), sz, lb, fi, r);
     }
 
     auto begin() { return v.begin(); }

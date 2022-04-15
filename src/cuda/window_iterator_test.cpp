@@ -4,6 +4,8 @@
 #include "traits.hpp"
 #include "window_iterator.hpp"
 
+#include <boost/mp11/list.hpp>
+#include <boost/mp11/set.hpp>
 #include <thrust/device_vector.h>
 #include <thrust/for_each.h>
 #include <utility>
@@ -116,7 +118,8 @@ void window_test_cuda<T>::transform4(T* v_, int n, const T* u_)
 }
 
 template <typename T>
-void window_test_cuda<T>::rhs(T* rhs_, const T* v_, int n, const T* u_) {
+void window_test_cuda<T>::rhs(T* rhs_, const T* v_, int n, const T* u_)
+{
 
     assert(n == 20);
     const auto i = Ib{1, 5};
@@ -126,19 +129,21 @@ void window_test_cuda<T>::rhs(T* rhs_, const T* v_, int n, const T* u_) {
     auto v = make_vec(v_, i, w);
     auto u = make_vec(u_, i);
 
-
-
     auto c = (rhs -= v(1) * u);
     static_assert(is_self_assign_proxy_v<decltype(c)>);
 
     auto d = (rhs - v(1) * u);
     static_assert(is_stencil_proxy_v<decltype(d)>);
 
-    with_domain(v.window(), i)(rhs -= v(1)*u);
+    with_domain(v.window(), i)(rhs -= v(1) * u);
     rhs.copy_to(rhs_);
 
-    using X = thrust::tuple<double&>;
+    using L = index_list<lazy::dim::K, lazy::dim::J, lazy::dim::I>;
+    using M = index_list<lazy::dim::K, lazy::dim::J>;
+    static_assert(missing_index_v<L, M> == lazy::dim::I);
 
+    using N = index_list<lazy::dim::K, lazy::dim::I>;
+    static_assert(missing_index_v<L, N> == lazy::dim::J);
 }
 
 template struct window_test_cuda<double>;

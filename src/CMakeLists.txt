@@ -12,6 +12,7 @@ if (USE_CUDA)
 endif()
 
 add_library(cuda_kernels
+  cuda/coarse_to_fine_cuda.cpp
   cuda/cd_correct_bc_1d_cuda.cpp
   cuda/cd_correct_bc_2d_cuda.cpp
   cuda/cd_correct_bc_3d_cuda.cpp
@@ -31,6 +32,7 @@ add_library(cuda_it
   cuda/submatrix_iterator_test.cpp
   cuda/transpose_iterator_test.cpp
   cuda/forward_stencil_iterator_test.cpp
+  cuda/coarse_to_fine_iterator_test.cpp
   cuda/lazy_vec.cpp)
 
 target_link_libraries(cuda_it Thrust Boost::boost)
@@ -40,6 +42,7 @@ add_unit_test(submatrix_iterator "iterator" cuda_it)
 add_unit_test(transpose_iterator "iterator" cuda_it random)
 add_unit_test(forward_stencil_iterator "iterator" cuda_it random)
 add_unit_test(lazy_vec "iterator" cuda_it random)
+add_unit_test(coarse_to_fine_iterator "iterator" cuda_it random)
 
 add_unit_test(cd_stencil_1d "coeffs" f77_kernels cuda_kernels random)
 add_unit_test(cd_stencil_2d "coeffs" f77_kernels cuda_kernels random)
@@ -56,3 +59,5 @@ add_unit_test(cd_flux_3d "flux" f77_kernels cuda_kernels random)
 add_unit_test(cd_apply_1d "apply" f77_kernels cuda_kernels random)
 add_unit_test(cd_apply_2d "apply" f77_kernels cuda_kernels random)
 add_unit_test(cd_apply_3d "apply" f77_kernels cuda_kernels random)
+
+add_unit_test(coarse_to_fine "coarse" f77_kernels cuda_kernels random)

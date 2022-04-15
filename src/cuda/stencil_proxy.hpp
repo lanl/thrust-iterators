@@ -164,7 +164,7 @@ struct stencil_proxy<0> : lazy_proxy_math<stencil_proxy<0>> {
 // expression so we wont be checking for this case (and could technically have made the
 // '2' anything)
 template <>
-struct stencil_proxy<2> {
+struct stencil_proxy<1> {
     int i, j;
 
     template <typename T>
