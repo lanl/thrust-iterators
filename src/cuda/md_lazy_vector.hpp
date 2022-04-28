@@ -91,7 +91,7 @@ namespace lazy
 //
 // The bounds on the incoming data are generally perturbations around some "base".  We use
 // +/-/expand to express that perturbation
-template <auto I>
+template <int I>
 struct dir_bounds : bounds {
     dir_bounds() = default;
     dir_bounds(int f, int l, bool inclusive = true) : bounds(f, l, inclusive) {}
@@ -192,13 +192,13 @@ struct assign_proxy {
 // However, we don't which direction the transpose will be until the user invokes the
 // assign_proxy with the desired bounds.  Therefore, we need to store this calculation in
 // a callable object that will do the right thing as a member of transform_op.
-template <int Shift, typename T, auto I>
+template <int Shift, typename T, int I>
 struct stencil_helper : lazy_vec_math<stencil_helper<Shift, T, I>> {
     T t;
 
     stencil_helper(T&& t) : t{FWD(t)} {}
 
-    template <auto... O>
+    template <int... O>
     constexpr auto operator()(dir_bounds<O>... bnds)
     {
         return t((bnds + shift_v<Shift, I, O>)...)
@@ -206,7 +206,7 @@ struct stencil_helper : lazy_vec_math<stencil_helper<Shift, T, I>> {
     }
 };
 
-template <int Shift, auto N, typename Vec, typename T>
+template <int Shift, int N, typename Vec, typename T>
 transform_op<T, stencil_helper<Shift, Vec, N>, gradient>
 make_gradient_transform(Vec&& vec, T h)
 {
@@ -216,7 +216,7 @@ make_gradient_transform(Vec&& vec, T h)
 //
 //
 //
-template <int Shift, auto N, typename Vec>
+template <int Shift, int N, typename Vec>
 stencil_helper<Shift, Vec, N> make_stencil_transform(Vec&& vec)
 {
     return {FWD(vec)};
@@ -227,21 +227,21 @@ stencil_helper<Shift, Vec, N> make_stencil_transform(Vec&& vec)
 // stencil/gradient.  In these cases we need to shift both the first and last indices by
 // the specified amount
 //
-template <typename T, auto I>
+template <typename T, int I>
 struct shift_helper : lazy_vec_math<shift_helper<T, I>> {
     T t;
     int s;
 
     shift_helper(T&& t, int s) : t{FWD(t)}, s{s} {}
 
-    template <auto... O>
+    template <int... O>
     constexpr auto operator()(dir_bounds<O>... bnds)
     {
         return t(bnds.shift(I == O ? s : 0)...);
     }
 };
 
-template <auto N, typename Vec>
+template <int N, typename Vec>
 shift_helper<Vec, N> make_shift_transform(Vec&& vec, int s)
 {
     return {FWD(vec), s};
@@ -254,14 +254,14 @@ struct coarse_helper : lazy_vec_math<coarse_helper<T>> {
 
     coarse_helper(T&& t) : t{FWD(t)} {}
 
-    template <auto... F>
+    template <int... F>
     constexpr auto operator()(dir_bounds<F>... fbnds)
     {
         return t.coarse_to_fine(fbnds...);
     }
 };
 
-template <typename T, auto... Order, auto... O>
+template <typename T, int... Order, int... O>
 auto make_coarse_transform(lazy_vector<T, Order...>& v,
                            int ratio,
                            dir_bounds<O>... coarse_bnds)
@@ -342,7 +342,7 @@ constexpr auto with_lhs_domain(T&& t)
 // recorded via the Order parameter pack and used to faciliate seamless reording in the
 // call operator
 //
-template <typename T, auto... Order>
+template <typename T, int... Order>
 class lazy_vector : lazy::lazy_vec_math<lazy_vector<T, Order...>>
 {
 

@@ -66,7 +66,7 @@ static constexpr auto is_bounds_v = detail::is_bounds<un_cvref_t<T>>::value;
 //
 namespace lazy
 {
-template <auto>
+template <int>
 struct dir_bounds;
 }
 
@@ -77,7 +77,7 @@ template <typename T>
 struct is_dir_bounds : std::false_type {
 };
 
-template <auto I>
+template <int I>
 struct is_dir_bounds<lazy::dir_bounds<I>> : std::true_type {
 };
 } // namespace detail
@@ -88,7 +88,7 @@ static constexpr auto is_dir_bounds_v = detail::is_dir_bounds<un_cvref_t<T>>::va
 //
 // trait for lazy_vec_math
 //
-template <typename, auto...>
+template <typename, int...>
 struct lazy_vector;
 
 namespace lazy
@@ -135,7 +135,7 @@ static constexpr auto is_assign_proxy_v = detail::is_assign_proxy<un_cvref_t<T>>
 //
 namespace lazy
 {
-template <auto, typename>
+template <int, typename>
 struct stencil_assign_proxy;
 }
 
@@ -145,7 +145,7 @@ template <typename>
 struct is_rhs_number : std::false_type {
 };
 
-template <auto N, typename T>
+template <int N, typename T>
 struct is_rhs_number<lazy::stencil_assign_proxy<N, T>>
     : std::is_arithmetic<un_cvref_t<T>> {
 };
