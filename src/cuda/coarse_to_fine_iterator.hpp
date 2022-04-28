@@ -47,8 +47,7 @@ private:
     template <typename>
     friend class coarse_to_fine_iterator;
 
-    __host__ __device__ typename thrust::iterator_reference_t<Iter>
-    dereference() const
+    __host__ __device__ typename thrust::iterator_reference_t<Iter> dereference() const
     {
         return *(first + (detail::coarse_index(r, fi) - ci) * s);
     }

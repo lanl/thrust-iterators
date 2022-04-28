@@ -534,7 +534,7 @@ public:
     template <auto... O>
     auto fine(int r, lazy::dir_bounds<O>... bnds)
     {
-        assert((bnds.size() == 1) && ...);
+        // assert((bnds.size() == 1) && ...);
         return [this, r, bnds...](auto&&... fbnds) mutable {
             return coarse_to_fine(r, std::tuple{bnds...}, fbnds...);
         };

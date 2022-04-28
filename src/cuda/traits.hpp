@@ -8,7 +8,17 @@
 
 #include <thrust/tuple.h>
 
-#define FWD(x) static_cast<decltype(x)&&>(x)
+namespace detail
+{
+template <typename _T>
+struct identity {
+    using type = _T;
+};
+} // namespace detail
+
+// We add a level of indirection here following the advice of nvidia inorder to avoid an
+// ICE in nvcc
+#define FWD(x) static_cast<typename ::detail::identity<decltype(x)>::type&&>(x)
 #define MOVE(x) static_cast<std::remove_reference_t<decltype(x)>&&>(x)
 
 namespace mp = boost::mp11;
