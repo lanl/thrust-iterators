@@ -142,7 +142,7 @@ struct stencil_proxy<0> : lazy_proxy_math<stencil_proxy<0>> {
     stencil_proxy(int i) : i{i} {}
 
     template <typename T>
-    stencil_assign_proxy<1, T> operator=(T&& t)
+    stencil_assign_proxy<1, arithmetic_by_value_t<T>> operator=(T&& t)
     {
         return {i, FWD(t)};
     }
@@ -168,7 +168,7 @@ struct stencil_proxy<1> {
     int i, j;
 
     template <typename T>
-    stencil_assign_proxy<2, T> operator=(T&& t)
+    stencil_assign_proxy<2, arithmetic_by_value_t<T>> operator=(T&& t)
     {
         return {i, j, FWD(t)};
     }
