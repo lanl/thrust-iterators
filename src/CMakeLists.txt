@@ -33,7 +33,7 @@ add_library(cuda_it
   cuda/transpose_iterator_test.cpp
   cuda/forward_stencil_iterator_test.cpp
   cuda/coarse_to_fine_iterator_test.cpp
-  cuda/lazy_vec.cpp)
+  cuda/md_device_span_test.cpp)
 
 target_link_libraries(cuda_it Thrust Boost::boost)
 
@@ -41,7 +41,7 @@ add_unit_test(window_iterator "iterator" cuda_it random)
 add_unit_test(submatrix_iterator "iterator" cuda_it)
 add_unit_test(transpose_iterator "iterator" cuda_it random)
 add_unit_test(forward_stencil_iterator "iterator" cuda_it random)
-add_unit_test(lazy_vec "iterator" cuda_it random)
+add_unit_test(md_device_span "iterator" cuda_it random)
 add_unit_test(coarse_to_fine_iterator "iterator" cuda_it random)
 
 add_unit_test(cd_stencil_1d "coeffs" f77_kernels cuda_kernels random)

@@ -2,7 +2,7 @@
 
 #include "traits.hpp"
 #include "tuple_utils.hpp"
-#include "lazy_math.hpp"
+#include "iter_math.hpp"
 
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
@@ -13,7 +13,7 @@ namespace lazy
 {
 
 template <typename T>
-struct lazy_proxy_math {
+struct proxy_math {
 private:
 #define LAZY_VEC_OPERATORS(op, nextOp)                                                   \
     template <typename U, typename V, typename = std::enable_if_t<is_similar_v<T, U>>>   \
@@ -29,7 +29,7 @@ private:
     template <typename U,                                                                \
               typename V,                                                                \
               typename = std::enable_if_t<(is_number_v<U> ||                             \
-                                           is_lazy_vec_math_v<U>)&&is_similar_v<T, V>>>  \
+                                           is_iter_math_v<U>)&&is_similar_v<T, V>>>  \
     constexpr friend stencil_proxy<next_proxy_index_v<U, V>,                             \
                                    arithmetic_by_value_t<U>,                             \
                                    boost::copy_cv_ref_t<T, V>,                           \
@@ -66,7 +66,7 @@ __host__ __device__ decltype(auto) maybe_invoke_with(U&& u, It&& it, T&& t)
         return u;
     } else if constexpr (is_base_stencil_proxy_v<U>) {
         return u(FWD(it));
-    } else if constexpr (is_lazy_vec_math_v<U>) {
+    } else if constexpr (is_iter_math_v<U>) {
         return thrust::get<N - 1>(t);
     } else {
         return u(FWD(it), FWD(t));
@@ -75,7 +75,7 @@ __host__ __device__ decltype(auto) maybe_invoke_with(U&& u, It&& it, T&& t)
 } // namespace detail
 
 template <int N, typename U, typename V, typename Op>
-struct stencil_proxy : lazy_proxy_math<stencil_proxy<N, U, V, Op>> {
+struct stencil_proxy : proxy_math<stencil_proxy<N, U, V, Op>> {
     U u;
     V v;
     Op op;
@@ -108,7 +108,7 @@ struct stencil_proxy : lazy_proxy_math<stencil_proxy<N, U, V, Op>> {
                 return merge_tuples(u.get_iterators(bnds...), v.get_iterators(bnds...));
             else if constexpr (is_number_v<V>)
                 return u.get_iterators(bnds...);
-            else if constexpr (is_lazy_vec_math_v<V>)
+            else if constexpr (is_iter_math_v<V>)
                 return append_to_tuple(u.get_iterators(bnds...), v(bnds...));
             else
                 static_assert(true, "we should never get here");
@@ -117,16 +117,16 @@ struct stencil_proxy : lazy_proxy_math<stencil_proxy<N, U, V, Op>> {
                 return v.get_iterators(bnds...);
             else if constexpr (is_number_v<V>)
                 return thrust::tuple<>{};
-            else if constexpr (is_lazy_vec_math_v<V>)
+            else if constexpr (is_iter_math_v<V>)
                 return thrust::make_tuple(v(bnds...));
             else
                 static_assert(true, "we should never get here");
-        } else if constexpr (is_lazy_vec_math_v<U>) {
+        } else if constexpr (is_iter_math_v<U>) {
             if constexpr (is_stencil_proxy_v<V>)
                 return prepend_to_tuple(u(bnds...), v.get_iterators(bnds...));
             else if constexpr (is_number_v<V>)
                 return thrust::make_tuple(u(bnds...));
-            else if constexpr (is_lazy_vec_math_v<V>) // I don't think this can happen
+            else if constexpr (is_iter_math_v<V>) // I don't think this can happen
                 return thrust::make_tuple(u(bnds...), v(bnds...));
             else
                 static_assert(true, "we should never get here");
@@ -136,7 +136,7 @@ struct stencil_proxy : lazy_proxy_math<stencil_proxy<N, U, V, Op>> {
 };
 
 template <>
-struct stencil_proxy<0> : lazy_proxy_math<stencil_proxy<0>> {
+struct stencil_proxy<0> : proxy_math<stencil_proxy<0>> {
     int i;
 
     stencil_proxy(int i) : i{i} {}
@@ -259,7 +259,7 @@ struct stencil_assign_proxy<1, T> {
     __host__ __device__ void operator()(It&& it, U&& u)
     {
 
-        if constexpr (is_lazy_vec_math_v<T>)
+        if constexpr (is_iter_math_v<T>)
             it[i] = u;
         else if constexpr (is_number_v<T>)
             it[i] = t;

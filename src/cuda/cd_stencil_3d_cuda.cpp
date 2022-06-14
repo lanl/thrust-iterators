@@ -1,6 +1,6 @@
 #include "../cd_stencil_3d_cuda.hpp"
 
-#include "md_lazy_vector.hpp"
+#include "md_device_span.hpp"
 
 template <typename T>
 void cd_stencil_3d_cuda<T>::offdiag(const int& i0,
@@ -28,10 +28,10 @@ void cd_stencil_3d_cuda<T>::offdiag(const int& i0,
     const auto k = Kb{k0, k1}, bk = Kb{bk0, bk1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
-    auto b0 = make_vec(b0_, bk, bj, bi + 1);
-    auto b1 = make_vec(b1_, bi, bk, bj + 1);
-    auto b2 = make_vec(b2_, bj, bi, bk + 1);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
+    auto b0 = make_md_span(b0_, bk, bj, bi + 1);
+    auto b1 = make_md_span(b1_, bi, bk, bj + 1);
+    auto b2 = make_md_span(b2_, bj, bi, bk + 1);
 
     T d0 = -beta / (dx[0] * dx[0]);
     T d1 = -beta / (dx[1] * dx[1]);
@@ -61,7 +61,7 @@ void cd_stencil_3d_cuda<T>::poisson_offdiag(const int& i0,
     const auto k = Kb{k0, k1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
 
     T d0 = -beta / (dx[0] * dx[0]);
     T d1 = -beta / (dx[1] * dx[1]);
@@ -95,8 +95,8 @@ void cd_stencil_3d_cuda<T>::v1diag(const int& i0,
     const auto k = Kb{k0, k1}, ak = Kb{ak0, ak1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
-    auto a = make_vec(a_, ak, aj, ai);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
+    auto a = make_md_span(a_, ak, aj, ai);
 
     with_domain(st.window(), k, j, i)(
         st(0) = -(st(1) + st(2) + st(3) + st(4) + st(5) + st(6)) + alpha * a);
@@ -120,7 +120,7 @@ void cd_stencil_3d_cuda<T>::v2diag(const int& i0,
     const auto k = Kb{k0, k1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
 
     with_domain(st.window(), k, j, i)(
         st(0) = -(st(1) + st(2) + st(3) + st(4) + st(5) + st(6)) + alpha);
@@ -143,7 +143,7 @@ void cd_stencil_3d_cuda<T>::poisson_diag(const int& i0,
     const auto k = Kb{k0, k1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
 
     with_domain(st.window(), k, j, i)(
         st(0) = -(st(1) + st(2) + st(3) + st(4) + st(5) + st(6)));
@@ -181,10 +181,10 @@ void cd_stencil_3d_cuda<T>::adj_diag(const int& i0,
     const auto k = Kb{k0, k1}, pk = Kb{pk0, pk1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
-    auto b0 = make_vec(b0_, k, j, i + 1);
-    auto b1 = make_vec(b1_, i, k, j + 1);
-    auto b2 = make_vec(b2_, j, i, k + 1);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
+    auto b0 = make_md_span(b0_, k, j, i + 1);
+    auto b1 = make_md_span(b1_, i, k, j + 1);
+    auto b2 = make_md_span(b2_, j, i, k + 1);
 
     T h{dx[dir]};
 
@@ -265,7 +265,7 @@ void cd_stencil_3d_cuda<T>::adj_poisson_diag(const int& i0,
     const auto k = Kb{k0, k1}, pk = Kb{pk0, pk1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
 
     T h{dx[dir]};
 
@@ -346,10 +346,10 @@ void cd_stencil_3d_cuda<T>::adj_cf_diag(const int& i0,
     const auto w = Wb{0, 6};
     const T dr = 2.0 * (r - 1.0) / (r + 1.0);
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
-    auto b0 = make_vec(b0_, k, j, i + 1);
-    auto b1 = make_vec(b1_, i, k, j + 1);
-    auto b2 = make_vec(b2_, j, i, k + 1);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
+    auto b0 = make_md_span(b0_, k, j, i + 1);
+    auto b1 = make_md_span(b1_, i, k, j + 1);
+    auto b2 = make_md_span(b2_, j, i, k + 1);
 
     T h{dx[dir]};
     T f = beta / (h * h);
@@ -409,7 +409,7 @@ void cd_stencil_3d_cuda<T>::adj_poisson_cf_diag(const int& i0,
     const auto w = Wb{0, 6};
     const T dr = 2.0 * (r - 1.0) / (r + 1.0);
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
 
     T h{dx[dir]};
     T f = beta / (h * h);
@@ -472,10 +472,10 @@ void cd_stencil_3d_cuda<T>::adj_offdiag(const int& i0,
     const auto k = Kb{k0, k1}, pk = Kb{pk0, pk1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
-    auto b0 = make_vec(b0_, k, j, i + 1);
-    auto b1 = make_vec(b1_, i, k, j + 1);
-    auto b2 = make_vec(b2_, j, i, k + 1);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
+    auto b0 = make_md_span(b0_, k, j, i + 1);
+    auto b1 = make_md_span(b1_, i, k, j + 1);
+    auto b2 = make_md_span(b2_, j, i, k + 1);
 
     T h{dx[dir]};
 
@@ -584,7 +584,7 @@ void cd_stencil_3d_cuda<T>::adj_poisson_offdiag(const int& i0,
     const auto k = Kb{k0, k1}, pk = Kb{pk0, pk1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
 
     T h{dx[dir]};
 
@@ -689,7 +689,7 @@ void cd_stencil_3d_cuda<T>::adj_cf_offdiag(const int& i0,
     const auto k = Kb{k0, k1}, ck = Kb{ck0, ck1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
 
     // localize indicies
     const auto cil = Ib{ci0 - 2 * side + 1, ci0 - 2 * side + 1};
@@ -746,7 +746,7 @@ void cd_stencil_3d_cuda<T>::readj_offdiag(const int& i0,
     const auto k = Kb{k0, k1}, pk = Kb{pk0, pk1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
 
     int u = 2 * dir + 1 + side;
 
@@ -799,9 +799,9 @@ void cd_stencil_3d_cuda<T>::adj_cf_bdryrhs(const int& i0,
     const auto k = Kb{k0, k1}, pk = Kb{pk0, pk1};
     const auto w = Wb{0, 6};
 
-    auto st = make_vec(st_, sgcw, k, j, i, w);
-    auto u = make_vec(u_, gcw, k, j, i);
-    auto rhs = make_vec(rhs_, k, j, i);
+    auto st = make_md_span(st_, sgcw, k, j, i, w);
+    auto u = make_md_span(u_, gcw, k, j, i);
+    auto rhs = make_md_span(rhs_, k, j, i);
 
     int ui = 2 * dir + 1 + side;
     int s = 2 * side - 1;

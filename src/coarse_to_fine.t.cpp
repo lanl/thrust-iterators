@@ -10,16 +10,14 @@
 #include "prototypes3d.h"
 #include "random.hpp"
 #include <algorithm>
+#include <vector>
 
 #include "coarse_to_fine_cuda.hpp"
-#include "md_host_vector.hpp"
+#include "md_device_vector.hpp"
 
 using Catch::Matchers::Approx;
 
 constexpr auto f = []() { return pick(0.0, 1.0); };
-using B = hbounds;
-static constexpr auto N = 3;
-using Dims = std::array<B, N>;
 
 template <typename T>
 using kernel = coarse_to_fine<T>;
@@ -28,7 +26,7 @@ TEST_CASE("copy")
 {
 
     using T = double;
-    using vec = md_host_vector<T, N>;
+    using vec = std::vector<T>;
     randomize();
 
     // coarse box
@@ -52,15 +50,13 @@ TEST_CASE("copy")
 
     auto axis = GENERATE(0, 1, 2);
 
-    vec cd(
-        B{cbk0 - gcw, cbk1 + gcw}, B{cbj0 - gcw, cbj1 + gcw}, B{cbi0 - gcw, cbi1 + gcw});
-    vec fd(
-        B{fbk0 - gcw, fbk1 + gcw}, B{fbj0 - gcw, fbj1 + gcw}, B{fbi0 - gcw, fbi1 + gcw});
+    auto cd = make_md_vec<T>(gcw, Kb{cbk0, cbk1}, Jb{cbj0, cbj1}, Ib{cbi0, cbi1});
+    auto fd = make_md_vec<T>(gcw, Kb{fbk0, fbk1}, Jb{fbj0, fbj1}, Ib{fbi0, fbi1});
 
-    std::generate(cd.begin(), cd.end(), f);
-    std::generate(fd.begin(), fd.end(), f);
+    cd.fill_random();
+    fd.fill_random();
 
-    std::vector<T> fd_cuda{fd.vec()};
+    thrust::device_vector<T> fd_cuda = fd.host();
 
     copycoarsetofine3d_(ci0,
                         ci1,
@@ -89,8 +85,8 @@ TEST_CASE("copy")
                         fbk1,
                         gcw,
                         r.data(),
-                        cd.data(),
-                        fd.data());
+                        cd.host_data(),
+                        fd.host_data());
 
     kernel<T>::copy(ci0,
                     ci1,
@@ -120,16 +116,19 @@ TEST_CASE("copy")
                     gcw,
                     r.data(),
                     cd.data(),
-                    &fd_cuda[0]);
+                    thrust::raw_pointer_cast(fd_cuda.data()));
 
-    REQUIRE_THAT(fd.vec(), Approx(fd_cuda));
+    vec fd_v = fd;
+    vec fd_cuda_v = to_std(fd_cuda);
+
+    REQUIRE_THAT(fd_v, Approx(fd_cuda_v));
 }
 
 TEST_CASE("corner")
 {
 
     using T = double;
-    using vec = md_host_vector<T, N>;
+    using vec = std::vector<T>;
     randomize();
 
     // coarse box
@@ -151,15 +150,13 @@ TEST_CASE("corner")
 
     const int gcw = pick(2, 3);
 
-    vec cd(
-        B{cbk0 - gcw, cbk1 + gcw}, B{cbj0 - gcw, cbj1 + gcw}, B{cbi0 - gcw, cbi1 + gcw});
-    vec fd(
-        B{fbk0 - gcw, fbk1 + gcw}, B{fbj0 - gcw, fbj1 + gcw}, B{fbi0 - gcw, fbi1 + gcw});
+    auto cd = make_md_vec<T>(gcw, Kb{cbk0, cbk1}, Jb{cbj0, cbj1}, Ib{cbi0, cbi1});
+    auto fd = make_md_vec<T>(gcw, Kb{fbk0, fbk1}, Jb{fbj0, fbj1}, Ib{fbi0, fbi1});
 
-    std::generate(cd.begin(), cd.end(), f);
-    std::generate(fd.begin(), fd.end(), f);
+    cd.fill_random();
+    fd.fill_random();
 
-    std::vector<T> fd_cuda{fd.vec()};
+    thrust::device_vector<T> fd_cuda = fd.host();
 
     copycoarsetofinecorner3d_(ci0,
                               ci1,
@@ -186,8 +183,8 @@ TEST_CASE("corner")
                               fbk0,
                               fbk1,
                               gcw,
-                              cd.data(),
-                              fd.data());
+                              cd.host_data(),
+                              fd.host_data());
 
     kernel<T>::copy_corner(ci0,
                            ci1,
@@ -215,7 +212,9 @@ TEST_CASE("corner")
                            fbk1,
                            gcw,
                            cd.data(),
-                           &fd_cuda[0]);
+                           thrust::raw_pointer_cast(fd_cuda.data()));
+    vec fd_v = fd;
+    vec fd_cuda_v = to_std(fd_cuda);
 
-    REQUIRE_THAT(fd.vec(), Approx(fd_cuda));
+    REQUIRE_THAT(fd_v, Approx(fd_cuda_v));
 }

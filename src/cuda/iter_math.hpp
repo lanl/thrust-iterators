@@ -99,11 +99,11 @@ struct apply_zip {
 //
 // The transform_op struct is callable object returned by the lazy math operations.  When
 // called, it forwards its arguments to its member(s) and returns a transform_iterator.
-// Thus our lazy_vec_math leads to transform_ops of transform_ops of ... and a similar
+// Thus our iter_math leads to transform_ops of transform_ops of ... and a similar
 // chaining of transform_iterators.
 //
 // To prevent unneccessary copies, the value category of the members
-// of transform_op are functions of the input to the lazy_vec_math operators.  For
+// of transform_op are functions of the input to the iter_math operators.  For
 // example, if operation+ involves and lvalue& of lazy_vec<...>, then one of the members
 // will be an lvalue& of lazy_vec<...>.  Rvalue refererences become values.  All
 // arithmetic values are also captured by value
@@ -115,7 +115,7 @@ template <typename, typename, typename>
 struct transform_op;
 
 template <typename T>
-struct lazy_vec_math {
+struct iter_math {
 private:
     // can't use auto for the return type since the functions then have the same
     // signature, triggering a redeclaration error
@@ -151,7 +151,7 @@ private:
 };
 
 template <typename U, typename V, typename Op>
-struct transform_op : private lazy_vec_math<transform_op<U, V, Op>> {
+struct transform_op : private iter_math<transform_op<U, V, Op>> {
     U u;
     V v;
     Op op;

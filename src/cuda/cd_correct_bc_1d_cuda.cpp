@@ -1,6 +1,6 @@
 #include "../cd_correct_bc_1d_cuda.hpp"
 
-#include "md_lazy_vector.hpp"
+#include "md_device_span.hpp"
 
 template <typename T>
 void cd_correct_bc_1d_cuda<T>::set_bc(const int& i0,
@@ -20,8 +20,8 @@ void cd_correct_bc_1d_cuda<T>::set_bc(const int& i0,
 {
     const auto i = Ib{i0, i1};
 
-    auto d0 = make_vec(d0_, dgcw, i + 1);
-    auto u = make_vec(u_, ugcw, i);
+    auto d0 = make_md_span(d0_, dgcw, i + 1);
+    auto u = make_md_span(u_, ugcw, i);
 
     // boundary bounds
     auto ib = Ib{std::max(bLo[0], i0), std::min(bHi[0], i1)};
@@ -84,7 +84,7 @@ void cd_correct_bc_1d_cuda<T>::set_poisson_bc(const int& i0,
 {
     const auto i = Ib{i0, i1};
 
-    auto u = make_vec(u_, ugcw, i);
+    auto u = make_md_span(u_, ugcw, i);
 
     // boundary bounds
     auto ib = Ib{std::max(bLo[0], i0), std::min(bHi[0], i1)};

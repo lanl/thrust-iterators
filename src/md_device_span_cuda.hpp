@@ -1,7 +1,8 @@
 #pragma once
 
+#include "cuda/traits.hpp"
 template <typename T = double>
-struct lazy_vec_cuda {
+struct md_device_span_cuda {
     static void init(const int& i0,
                      const int& i1,
                      const T& beta,

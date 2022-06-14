@@ -86,26 +86,26 @@ template <typename T>
 static constexpr auto is_dir_bounds_v = detail::is_dir_bounds<un_cvref_t<T>>::value;
 
 //
-// trait for lazy_vec_math
+// trait for iter_math
 //
 template <typename, int...>
-struct lazy_vector;
+struct md_device_span;
 
 namespace lazy
 {
 template <typename>
-struct lazy_vec_math;
+struct iter_math;
 }
 
 namespace detail
 {
 template <typename T>
-struct is_lazy_vec_math : std::is_base_of<lazy::lazy_vec_math<T>, T> {
+struct is_iter_math : std::is_base_of<lazy::iter_math<T>, T> {
 };
 } // namespace detail
 
 template <typename T>
-static constexpr auto is_lazy_vec_math_v = detail::is_lazy_vec_math<un_cvref_t<T>>::value;
+static constexpr auto is_iter_math_v = detail::is_iter_math<un_cvref_t<T>>::value;
 
 //
 // traits for assign_proxy
@@ -225,7 +225,7 @@ struct next_proxy_index {
                 return v > u ? v : u;
             } else if constexpr (is_number_v<V>) {
                 return u;
-            } else if constexpr (is_lazy_vec_math_v<V>) {
+            } else if constexpr (is_iter_math_v<V>) {
                 return u + 1;
             } else if constexpr (true) {
                 static_assert(true, "how did we get here?");
@@ -234,7 +234,7 @@ struct next_proxy_index {
             constexpr auto v = proxy_index_v<V>;
             if constexpr (is_number_v<U>) {
                 return v;
-            } else if constexpr (is_lazy_vec_math_v<U>) {
+            } else if constexpr (is_iter_math_v<U>) {
                 return v + 1;
             } else if constexpr (true) {
                 static_assert(true, "how did we get here?");

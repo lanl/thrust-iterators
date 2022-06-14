@@ -14,7 +14,6 @@ TEST_CASE("submatrix_iterator basic")
     int ub[N] = {4, 6};
 
     std::vector<T> v(sz[0] * sz[1], 1);
-    printf("v.size() %ld\n", v.size());
     REQUIRE(v.size() == sz[0] * sz[1]);
 
     submatrix_test_cuda<N, T>::init(&v[0], sz, lb, ub);

@@ -11,19 +11,16 @@
 #include <algorithm>
 
 #include "cd_apply_3d_cuda.hpp"
-#include "md_host_vector.hpp"
+#include "md_device_vector.hpp"
 
 using Catch::Matchers::Approx;
 
 constexpr auto f = []() { return pick(0.0, 1.0); };
-using B = hbounds;
-static constexpr auto N = 3;
-using Dims = std::array<B, N>;
 
 TEST_CASE("diffusion v1 res")
 {
     using T = double;
-    using vec = md_host_vector<T, N>;
+    using vec = std::vector<T>;
     randomize();
 
     const int i0 = 7, j0 = 99, k0 = 12;
@@ -34,20 +31,25 @@ TEST_CASE("diffusion v1 res")
     const int rgcw = pick(2, 5);
     const int agcw = pick(3, 9);
 
-    vec a(B{k0 - agcw, k1 + agcw}, B{j0 - agcw, j1 + agcw}, B{i0 - agcw, i1 + agcw});
-    vec u(B{k0 - ugcw, k1 + ugcw}, B{j0 - ugcw, j1 + ugcw}, B{i0 - ugcw, i1 + ugcw});
-    vec ff(B{k0 - fgcw, k1 + fgcw}, B{j0 - fgcw, j1 + fgcw}, B{i0 - fgcw, i1 + fgcw});
-    vec res(B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    vec f0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    vec f1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    vec f2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(u.begin(), u.end(), f);
-    std::generate(a.begin(), a.end(), f);
-    std::generate(ff.begin(), ff.end(), f);
-    std::generate(f0.begin(), f0.end(), f);
-    std::generate(f1.begin(), f1.end(), f);
-    std::generate(f2.begin(), f2.end(), f);
+    auto a = make_md_vec<T>(agcw, k, j, i);
+    auto u = make_md_vec<T>(ugcw, k, j, i);
+    auto ff = make_md_vec<T>(fgcw, k, j, i);
+    auto res = make_md_vec<T>(rgcw, k, j, i);
+    auto res_cuda = make_md_vec<T>(rgcw, k, j, i);
+    auto f0 = make_md_vec<T>(k, j, i + 1);
+    auto f1 = make_md_vec<T>(i, k, j + 1);
+    auto f2 = make_md_vec<T>(j, i, k + 1);
+
+    a.fill_random();
+    u.fill_random();
+    ff.fill_random();
+    f0.fill_random();
+    f1.fill_random();
+    f2.fill_random();
 
     T beta = f();
     T alpha = f();
@@ -62,18 +64,17 @@ TEST_CASE("diffusion v1 res")
                           beta,
                           dx.data(),
                           agcw,
-                          a.data(),
+                          a.host_data(),
                           ugcw,
-                          u.data(),
+                          u.host_data(),
                           fgcw,
-                          ff.data(),
-                          f0.data(),
-                          f1.data(),
-                          f2.data(),
+                          ff.host_data(),
+                          f0.host_data(),
+                          f1.host_data(),
+                          f2.host_data(),
                           rgcw,
-                          res.data());
+                          res.host_data());
 
-    std::vector<T> res_cuda(res.size());
     cd_apply_3d_cuda<T>::diffusion_v1_res(i0,
                                           i1,
                                           j0,
@@ -93,15 +94,17 @@ TEST_CASE("diffusion v1 res")
                                           f1.data(),
                                           f2.data(),
                                           rgcw,
-                                          &res_cuda[0]);
+                                          res_cuda.data());
+    vec res_v = res;
+    vec res_cuda_v = res_cuda;
 
-    REQUIRE_THAT(res.vec(), Approx(res_cuda));
+    REQUIRE_THAT(res_v, Approx(res_cuda_v));
 }
 
 TEST_CASE("diffusion v2 res")
 {
     using T = double;
-    using vec = md_host_vector<T, N>;
+    using vec = std::vector<T>;
     randomize();
 
     const int i0 = 5, j0 = 12, k0 = 98;
@@ -111,18 +114,23 @@ TEST_CASE("diffusion v2 res")
     const int fgcw = pick(1, 4);
     const int rgcw = pick(2, 5);
 
-    vec u(B{k0 - ugcw, k1 + ugcw}, B{j0 - ugcw, j1 + ugcw}, B{i0 - ugcw, i1 + ugcw});
-    vec ff(B{k0 - fgcw, k1 + fgcw}, B{j0 - fgcw, j1 + fgcw}, B{i0 - fgcw, i1 + fgcw});
-    vec res(B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    vec f0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    vec f1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    vec f2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(u.begin(), u.end(), f);
-    std::generate(ff.begin(), ff.end(), f);
-    std::generate(f0.begin(), f0.end(), f);
-    std::generate(f1.begin(), f1.end(), f);
-    std::generate(f2.begin(), f2.end(), f);
+    auto u = make_md_vec<T>(ugcw, k, j, i);
+    auto ff = make_md_vec<T>(fgcw, k, j, i);
+    auto res = make_md_vec<T>(rgcw, k, j, i);
+    auto res_cuda = make_md_vec<T>(rgcw, k, j, i);
+    auto f0 = make_md_vec<T>(k, j, i + 1);
+    auto f1 = make_md_vec<T>(i, k, j + 1);
+    auto f2 = make_md_vec<T>(j, i, k + 1);
+
+    u.fill_random();
+    ff.fill_random();
+    f0.fill_random();
+    f1.fill_random();
+    f2.fill_random();
 
     T beta = f();
     T alpha = f();
@@ -137,16 +145,15 @@ TEST_CASE("diffusion v2 res")
                           beta,
                           dx.data(),
                           ugcw,
-                          u.data(),
+                          u.host_data(),
                           fgcw,
-                          ff.data(),
-                          f0.data(),
-                          f1.data(),
-                          f2.data(),
+                          ff.host_data(),
+                          f0.host_data(),
+                          f1.host_data(),
+                          f2.host_data(),
                           rgcw,
-                          res.data());
+                          res.host_data());
 
-    std::vector<T> res_cuda(res.size());
     cd_apply_3d_cuda<T>::diffusion_v2_res(i0,
                                           i1,
                                           j0,
@@ -164,15 +171,18 @@ TEST_CASE("diffusion v2 res")
                                           f1.data(),
                                           f2.data(),
                                           rgcw,
-                                          &res_cuda[0]);
+                                          res_cuda.data());
 
-    REQUIRE_THAT(res.vec(), Approx(res_cuda));
+    vec res_v = res;
+    vec res_cuda_v = res_cuda;
+
+    REQUIRE_THAT(res_v, Approx(res_cuda_v));
 }
 
 TEST_CASE("poisson v1 res")
 {
     using T = double;
-    using vec = md_host_vector<T, N>;
+    using vec = std::vector<T>;
     randomize();
 
     const int i0 = 5, j0 = 12, k0 = 32;
@@ -181,16 +191,21 @@ TEST_CASE("poisson v1 res")
     const int fgcw = pick(1, 4);
     const int rgcw = pick(2, 5);
 
-    vec ff(B{k0 - fgcw, k1 + fgcw}, B{j0 - fgcw, j1 + fgcw}, B{i0 - fgcw, i1 + fgcw});
-    vec res(B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    vec f0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    vec f1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    vec f2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(ff.begin(), ff.end(), f);
-    std::generate(f0.begin(), f0.end(), f);
-    std::generate(f1.begin(), f1.end(), f);
-    std::generate(f2.begin(), f2.end(), f);
+    auto ff = make_md_vec<T>(fgcw, k, j, i);
+    auto res = make_md_vec<T>(rgcw, k, j, i);
+    auto res_cuda = make_md_vec<T>(rgcw, k, j, i);
+    auto f0 = make_md_vec<T>(k, j, i + 1);
+    auto f1 = make_md_vec<T>(i, k, j + 1);
+    auto f2 = make_md_vec<T>(j, i, k + 1);
+
+    ff.fill_random();
+    f0.fill_random();
+    f1.fill_random();
+    f2.fill_random();
 
     T beta = f();
     T alpha = f();
@@ -204,14 +219,13 @@ TEST_CASE("poisson v1 res")
                         beta,
                         dx.data(),
                         fgcw,
-                        ff.data(),
-                        f0.data(),
-                        f1.data(),
-                        f2.data(),
+                        ff.host_data(),
+                        f0.host_data(),
+                        f1.host_data(),
+                        f2.host_data(),
                         rgcw,
-                        res.data());
+                        res.host_data());
 
-    std::vector<T> res_cuda(res.size());
     cd_apply_3d_cuda<T>::poisson_v1_res(i0,
                                         i1,
                                         j0,
@@ -226,15 +240,18 @@ TEST_CASE("poisson v1 res")
                                         f1.data(),
                                         f2.data(),
                                         rgcw,
-                                        &res_cuda[0]);
+                                        res_cuda.data());
 
-    REQUIRE_THAT(res.vec(), Approx(res_cuda));
+    vec res_v = res;
+    vec res_cuda_v = res_cuda;
+
+    REQUIRE_THAT(res_v, Approx(res_cuda_v));
 }
 
 TEST_CASE("diffusion v1 apply")
 {
     using T = double;
-    using vec = md_host_vector<T, N>;
+    using vec = std::vector<T>;
     randomize();
 
     const int i0 = 5, j0 = 12, k0 = 55;
@@ -244,18 +261,23 @@ TEST_CASE("diffusion v1 apply")
     const int ugcw = pick(2, 5);
     const int agcw = pick(1, 7);
 
-    vec a(B{k0 - agcw, k1 + agcw}, B{j0 - agcw, j1 + agcw}, B{i0 - agcw, i1 + agcw});
-    vec u(B{k0 - ugcw, k1 + ugcw}, B{j0 - ugcw, j1 + ugcw}, B{i0 - ugcw, i1 + ugcw});
-    vec res(B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    vec f0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    vec f1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    vec f2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(a.begin(), a.end(), f);
-    std::generate(u.begin(), u.end(), f);
-    std::generate(f0.begin(), f0.end(), f);
-    std::generate(f1.begin(), f1.end(), f);
-    std::generate(f2.begin(), f2.end(), f);
+    auto a = make_md_vec<T>(agcw, k, j, i);
+    auto u = make_md_vec<T>(ugcw, k, j, i);
+    auto res = make_md_vec<T>(rgcw, k, j, i);
+    auto res_cuda = make_md_vec<T>(rgcw, k, j, i);
+    auto f0 = make_md_vec<T>(k, j, i + 1);
+    auto f1 = make_md_vec<T>(i, k, j + 1);
+    auto f2 = make_md_vec<T>(j, i, k + 1);
+
+    a.fill_random();
+    u.fill_random();
+    f0.fill_random();
+    f1.fill_random();
+    f2.fill_random();
 
     T beta = f();
     T alpha = f();
@@ -270,16 +292,15 @@ TEST_CASE("diffusion v1 apply")
                             beta,
                             dx.data(),
                             agcw,
-                            a.data(),
+                            a.host_data(),
                             ugcw,
-                            u.data(),
-                            f0.data(),
-                            f1.data(),
-                            f2.data(),
+                            u.host_data(),
+                            f0.host_data(),
+                            f1.host_data(),
+                            f2.host_data(),
                             rgcw,
-                            res.data());
+                            res.host_data());
 
-    std::vector<T> res_cuda(res.size());
     cd_apply_3d_cuda<T>::diffusion_v1_apply(i0,
                                             i1,
                                             j0,
@@ -297,15 +318,18 @@ TEST_CASE("diffusion v1 apply")
                                             f1.data(),
                                             f2.data(),
                                             rgcw,
-                                            &res_cuda[0]);
+                                            res_cuda.data());
 
-    REQUIRE_THAT(res.vec(), Approx(res_cuda));
+    vec res_v = res;
+    vec res_cuda_v = res_cuda;
+
+    REQUIRE_THAT(res_v, Approx(res_cuda_v));
 }
 
 TEST_CASE("diffusion v2 apply")
 {
     using T = double;
-    using vec = md_host_vector<T, N>;
+    using vec = std::vector<T>;
     randomize();
 
     const int i0 = 5, j0 = 12, k0 = 22;
@@ -314,16 +338,22 @@ TEST_CASE("diffusion v2 apply")
     const int rgcw = pick(1, 4);
     const int ugcw = pick(1, 4);
 
-    vec u(B{k0 - ugcw, k1 + ugcw}, B{j0 - ugcw, j1 + ugcw}, B{i0 - ugcw, i1 + ugcw});
-    vec res(B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    vec f0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    vec f1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    vec f2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(u.begin(), u.end(), f);
-    std::generate(f0.begin(), f0.end(), f);
-    std::generate(f1.begin(), f1.end(), f);
-    std::generate(f2.begin(), f2.end(), f);
+    auto u = make_md_vec<T>(ugcw, k, j, i);
+    auto res = make_md_vec<T>(rgcw, k, j, i);
+    auto res_cuda = make_md_vec<T>(rgcw, k, j, i);
+    auto f0 = make_md_vec<T>(k, j, i + 1);
+    auto f1 = make_md_vec<T>(i, k, j + 1);
+    auto f2 = make_md_vec<T>(j, i, k + 1);
+
+    u.fill_random();
+    f0.fill_random();
+    f1.fill_random();
+    f2.fill_random();
+
     T beta = f();
     T alpha = f();
 
@@ -337,14 +367,13 @@ TEST_CASE("diffusion v2 apply")
                             beta,
                             dx.data(),
                             ugcw,
-                            u.data(),
-                            f0.data(),
-                            f1.data(),
-                            f2.data(),
+                            u.host_data(),
+                            f0.host_data(),
+                            f1.host_data(),
+                            f2.host_data(),
                             rgcw,
-                            res.data());
+                            res.host_data());
 
-    std::vector<T> res_cuda(res.size());
     cd_apply_3d_cuda<T>::diffusion_v2_apply(i0,
                                             i1,
                                             j0,
@@ -360,15 +389,18 @@ TEST_CASE("diffusion v2 apply")
                                             f1.data(),
                                             f2.data(),
                                             rgcw,
-                                            &res_cuda[0]);
+                                            res_cuda.data());
 
-    REQUIRE_THAT(res.vec(), Approx(res_cuda));
+    vec res_v = res;
+    vec res_cuda_v = res_cuda;
+
+    REQUIRE_THAT(res_v, Approx(res_cuda_v));
 }
 
 TEST_CASE("poisson v2 apply")
 {
     using T = double;
-    using vec = md_host_vector<T, N>;
+    using vec = std::vector<T>;
     randomize();
 
     const int i0 = 35, j0 = 12, k0 = 45;
@@ -376,14 +408,20 @@ TEST_CASE("poisson v2 apply")
     const std::array dx{0.15, 0.7, 0.13};
     const int rgcw = 2;
 
-    vec res(B{k0 - rgcw, k1 + rgcw}, B{j0 - rgcw, j1 + rgcw}, B{i0 - rgcw, i1 + rgcw});
-    vec f0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    vec f1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    vec f2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(f0.begin(), f0.end(), f);
-    std::generate(f1.begin(), f1.end(), f);
-    std::generate(f2.begin(), f2.end(), f);
+    auto res = make_md_vec<T>(rgcw, k, j, i);
+    auto res_cuda = make_md_vec<T>(rgcw, k, j, i);
+    auto f0 = make_md_vec<T>(k, j, i + 1);
+    auto f1 = make_md_vec<T>(i, k, j + 1);
+    auto f2 = make_md_vec<T>(j, i, k + 1);
+
+    f0.fill_random();
+    f1.fill_random();
+    f2.fill_random();
+
     T beta = f();
 
     cellpoissonv2apply3d_(i0,
@@ -394,13 +432,12 @@ TEST_CASE("poisson v2 apply")
                           k1,
                           beta,
                           dx.data(),
-                          f0.data(),
-                          f1.data(),
-                          f2.data(),
+                          f0.host_data(),
+                          f1.host_data(),
+                          f2.host_data(),
                           rgcw,
-                          res.data());
+                          res.host_data());
 
-    std::vector<T> res_cuda(res.size());
     cd_apply_3d_cuda<T>::poisson_v2_apply(i0,
                                           i1,
                                           j0,
@@ -413,7 +450,10 @@ TEST_CASE("poisson v2 apply")
                                           f1.data(),
                                           f2.data(),
                                           rgcw,
-                                          &res_cuda[0]);
+                                          res_cuda.data());
 
-    REQUIRE_THAT(res.vec(), Approx(res_cuda));
+    vec res_v = res;
+    vec res_cuda_v = res_cuda;
+
+    REQUIRE_THAT(res_v, Approx(res_cuda_v));
 }

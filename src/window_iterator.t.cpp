@@ -5,7 +5,8 @@
 #include "window_iterator_test.hpp"
 #include <vector>
 
-#include "random.hpp"
+#include "md_device_vector.hpp"
+
 #include <algorithm>
 #include <iostream>
 
@@ -16,8 +17,11 @@ constexpr auto f = []() { return pick(0.0, 1.0); };
 TEST_CASE("window_iterator basic")
 {
     using T = double;
-    std::vector<T> v(10);
-    window_test_cuda<T>::init(&v[0], v.size());
+    auto u = make_md_vec<T>(Ib{1, 10});
+
+    window_test_cuda<T>::init(u.data(), u.size());
+
+    const auto& v = u.host();
 
     REQUIRE(v[0] == 1.0);
     REQUIRE(v[1] == 2.0);
@@ -28,12 +32,13 @@ TEST_CASE("window_iterator basic")
 TEST_CASE("window_iterator transform")
 {
     using T = double;
-    std::vector<T> v(10);
-    window_test_cuda<T>::transform(&v[0], v.size());
+    auto v = make_md_vec<T>(Ib{1, 10});
+    window_test_cuda<T>::transform(v.data(), v.size());
 
     std::vector<T> u{1, 2, 1, 2, 1, 2, 1, 2, 1, 2};
+    std::vector<T> v_h = v;
 
-    REQUIRE(v == u);
+    REQUIRE(v_h == u);
 }
 
 TEST_CASE("window_iterator transform2")
@@ -42,13 +47,14 @@ TEST_CASE("window_iterator transform2")
     int w = 3;
     int sz = 5;
 
-    std::vector<T> v(w * sz);
+    auto vd = make_md_vec<T>(Ib(1, sz), Wb(1, w));
     randomize();
 
-    std::generate(v.begin(), v.end(), f);
+    vd.fill_random();
 
-    window_test_cuda<T>::transform2(&v[0], v.size());
+    window_test_cuda<T>::transform2(vd.data(), vd.size());
 
+    std::vector<T> v = vd;
     std::vector<T> u(v.size());
     for (int i = 0; i < sz; i++) {
         int j = i * w;
@@ -66,16 +72,19 @@ TEST_CASE("window_iterator transform3")
     int w = 3;
     int sz = 5;
 
-    std::vector<T> v(w * sz);
-    std::vector<T> x(sz);
+    auto vd = make_md_vec<T>(Ib{1, sz}, Wb{1, w});
+    auto xd = make_md_vec<T>(Ib(1, sz));
     randomize();
 
-    std::generate(v.begin(), v.end(), f);
-    std::generate(x.begin(), x.end(), f);
+    vd.fill_random();
+    xd.fill_random();
 
-    window_test_cuda<T>::transform3(&v[0], v.size(), x.data());
+    window_test_cuda<T>::transform3(vd.data(), vd.size(), xd.data());
 
+    std::vector<T> v = vd;
+    const auto& x = xd.host();
     std::vector<T> u(v.size());
+
     for (int i = 0; i < sz; i++) {
         int j = i * w;
         u[j + 1] = v[j + 1];
@@ -92,16 +101,19 @@ TEST_CASE("window_iterator transform4")
     int w = 4;
     int sz = 5;
 
-    std::vector<T> v(w * sz);
-    std::vector<T> x(sz);
+    auto vd = make_md_vec<T>(Ib{1, sz}, Wb{1, w});
+    auto xd = make_md_vec<T>(Ib(1, sz));
     randomize();
 
-    std::generate(v.begin(), v.end(), f);
-    std::generate(x.begin(), x.end(), f);
+    vd.fill_random();
+    xd.fill_random();
 
-    window_test_cuda<T>::transform4(&v[0], v.size(), x.data());
+    window_test_cuda<T>::transform4(vd.data(), vd.size(), xd.data());
 
+    std::vector<T> v = vd;
+    const auto& x = xd.host();
     std::vector<T> u(v.size());
+
     for (int i = 0; i < sz; i++) {
         int j = i * w;
         u[j] = -(v[j + 2] + v[j + 3]) - 3 * x[i];
@@ -119,23 +131,22 @@ TEST_CASE("window_iterator rhs")
     int w = 4;
     int sz = 5;
 
-    std::vector<T> v(w * sz);
-    std::vector<T> x(sz);
-    std::vector<T> rhs(sz);
+    auto vd = make_md_vec<T>(Ib{1, sz}, Wb{1, w});
+    auto xd = make_md_vec<T>(Ib(1, sz));
+    auto rhsd = make_md_vec<T>(Ib(1, sz));
     randomize();
 
-    std::generate(v.begin(), v.end(), f);
-    std::generate(x.begin(), x.end(), f);
-    std::generate(rhs.begin(), rhs.end(), f);
+    vd.fill_random();
+    xd.fill_random();
+    rhsd.fill_random();
 
-    std::vector<T> ans{rhs};
+    std::vector<T> ans = rhsd;
 
-    window_test_cuda<T>::rhs(&rhs[0], v.data(), v.size(), x.data());
+    window_test_cuda<T>::rhs(rhsd.data(), vd.data(), vd.size(), xd.data());
 
-    for (int i = 0; i < sz; i++) {
-        int j = i * w;
-        std::cout << rhs[i] << ", " << ans[i] << ", " << (v[j + 1] * x[i]) << '\n';
-    }
+    std::vector<T> rhs = rhsd;
+    const auto& v = vd.host();
+    const auto& x = xd.host();
 
     for (int i = 0; i < sz; i++) {
         int j = i * w;

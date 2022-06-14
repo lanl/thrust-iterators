@@ -1,5 +1,5 @@
 #include "../coarse_to_fine_cuda.hpp"
-#include "md_lazy_vector.hpp"
+#include "md_device_span.hpp"
 
 template <typename T>
 void coarse_to_fine<T>::copy(const int& ci0,
@@ -32,8 +32,8 @@ void coarse_to_fine<T>::copy(const int& ci0,
                              const T* cdata_,
                              T* fdata_)
 {
-    auto c = make_vec(cdata_, gcw, Kb{cbk0, cbk1}, Jb{cbj0, cbj1}, Ib{cbi0, cbi1});
-    auto f = make_vec(fdata_, gcw, Kb{fbk0, fbk1}, Jb{fbj0, fbj1}, Ib{fbi0, fbi1});
+    auto c = make_md_span(cdata_, gcw, Kb{cbk0, cbk1}, Jb{cbj0, cbj1}, Ib{cbi0, cbi1});
+    auto f = make_md_span(fdata_, gcw, Kb{fbk0, fbk1}, Jb{fbj0, fbj1}, Ib{fbi0, fbi1});
 
     // low and full bounds
     auto cil = Ib{ci0, ci0}, fil = Ib{fi0, fi0}, fi = Ib{fi0, fi1};
@@ -51,8 +51,6 @@ void coarse_to_fine<T>::copy(const int& ci0,
         with_domain(fk, fjl, fil)(f = c.fine(ratio[axis], cjl, cil));
         break;
     }
-
-    f.copy_to(fdata_);
 }
 
 template <typename T>
@@ -84,12 +82,10 @@ void coarse_to_fine<T>::copy_corner(const int& ci0,
                                     const T* cdata_,
                                     T* fdata_)
 {
-    auto c = make_vec(cdata_, gcw, Kb{cbk0, cbk1}, Jb{cbj0, cbj1}, Ib{cbi0, cbi1});
-    auto f = make_vec(fdata_, gcw, Kb{fbk0, fbk1}, Jb{fbj0, fbj1}, Ib{fbi0, fbi1});
+    auto c = make_md_span(cdata_, gcw, Kb{cbk0, cbk1}, Jb{cbj0, cbj1}, Ib{cbi0, cbi1});
+    auto f = make_md_span(fdata_, gcw, Kb{fbk0, fbk1}, Jb{fbj0, fbj1}, Ib{fbi0, fbi1});
 
     f.at(fk0, fj0, fi0) = c.at(ck0, cj0, ci0);
-
-    f.copy_to(fdata_);
 }
 
 template struct coarse_to_fine<float>;

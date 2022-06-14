@@ -12,7 +12,7 @@
 #include <algorithm>
 
 #include "cd_correct_bc_1d_cuda.hpp"
-#include "md_host_vector.hpp"
+#include "md_device_vector.hpp"
 
 using Catch::Matchers::Approx;
 
@@ -20,14 +20,16 @@ template <typename T>
 using bc = cd_correct_bc_1d_cuda<T>;
 
 constexpr auto f = []() { return pick(0.0, 1.0); };
-using B = hbounds;
-static constexpr auto N = 1;
-using Dims = std::array<B, N>;
+
+template <typename T>
+void compare(const std::vector<T>& t, const std::vector<T>& u)
+{
+    REQUIRE_THAT(t, Approx(u));
+}
 
 TEST_CASE("set")
 {
     using T = double;
-    using vec = md_host_vector<T, N>;
     randomize();
 
     const int i0 = 10;
@@ -38,13 +40,15 @@ TEST_CASE("set")
     const T alpha = pick(0.1, 10.0);
     const T beta = pick(0.1, 10.0);
 
-    vec u(B{i0 - ugcw, i1 + ugcw});
+    const auto i = Ib{i0, i1};
 
-    vec d0(B{i0 - dgcw, i1 + 1 + dgcw});
+    auto u = make_md_vec<T>(ugcw, i);
+    auto d0 = make_md_vec<T>(dgcw, i + 1);
 
-    std::generate(d0.begin(), d0.end(), f);
-    std::generate(u.begin(), u.end(), f);
-    std::vector<T> u_cuda{u.vec()};
+    u.fill_random();
+    d0.fill_random();
+
+    thrust::device_vector<T> u_cuda = u.host();
 
     const std::array bLo{i0 + pick(1, 3)};
     const std::array bHi{i1 - pick(1, 3)};
@@ -57,9 +61,9 @@ TEST_CASE("set")
                            i1,
                            dx.data(),
                            dgcw,
-                           d0.data(),
+                           d0.host_data(),
                            ugcw,
-                           u.data(),
+                           u.host_data(),
                            bLo.data(),
                            bHi.data(),
                            exOrder,
@@ -74,7 +78,7 @@ TEST_CASE("set")
                   dgcw,
                   d0.data(),
                   ugcw,
-                  &u_cuda[0],
+                  thrust::raw_pointer_cast(u_cuda.data()),
                   bLo.data(),
                   bHi.data(),
                   exOrder,
@@ -83,13 +87,12 @@ TEST_CASE("set")
                   alpha,
                   beta);
 
-    REQUIRE_THAT(u.vec(), Approx(u_cuda));
+    compare<T>(u, to_std(u_cuda));
 }
 
 TEST_CASE("poisson")
 {
     using T = double;
-    using vec = md_host_vector<T, N>;
     randomize();
 
     const int i0 = 10;
@@ -99,10 +102,13 @@ TEST_CASE("poisson")
     const T alpha = pick(0.1, 10.0);
     const T beta = pick(0.1, 10.0);
 
-    vec u(B{i0 - ugcw, i1 + ugcw});
+    const auto i = Ib{i0, i1};
 
-    std::generate(u.begin(), u.end(), f);
-    std::vector<T> u_cuda{u.vec()};
+    auto u = make_md_vec<T>(ugcw, i);
+
+    u.fill_random();
+
+    thrust::device_vector<T> u_cuda = u.host();
 
     const std::array bLo{i0 + pick(1, 3)};
     const std::array bHi{i1 - pick(1, 3)};
@@ -115,7 +121,7 @@ TEST_CASE("poisson")
                                   i1,
                                   dx.data(),
                                   ugcw,
-                                  u.data(),
+                                  u.host_data(),
                                   bLo.data(),
                                   bHi.data(),
                                   exOrder,
@@ -128,7 +134,7 @@ TEST_CASE("poisson")
                           i1,
                           dx.data(),
                           ugcw,
-                          &u_cuda[0],
+                          thrust::raw_pointer_cast(u_cuda.data()),
                           bLo.data(),
                           bHi.data(),
                           exOrder,
@@ -137,5 +143,5 @@ TEST_CASE("poisson")
                           alpha,
                           beta);
 
-    REQUIRE_THAT(u.vec(), Approx(u_cuda));
+    compare<T>(u, to_std(u_cuda));
 }

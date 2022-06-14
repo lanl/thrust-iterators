@@ -1,7 +1,8 @@
 #pragma once
 
 #include "matrix_traversal_iterator.hpp"
-#include "md_lazy_vector.hpp"
+#include "md_device_span.hpp"
+#include "traits.hpp"
 
 namespace detail
 {
@@ -22,7 +23,7 @@ window_helper(std::index_sequence<I...>, Iter it, const int (&sz)[N + 1])
 // construct a multidimensional window iterator from an ND lazy_vec assuming the last
 // dimension is the window size
 template <typename T, auto... Order>
-auto window(lazy_vector<T, Order...>& v)
+auto window(md_device_span<T, Order...>& v)
 {
     static constexpr auto N = v.N - 1;
     auto db = v.dir_bounds();

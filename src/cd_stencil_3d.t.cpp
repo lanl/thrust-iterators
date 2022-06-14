@@ -12,18 +12,29 @@
 #include <algorithm>
 
 #include "cd_stencil_3d_cuda.hpp"
-#include "md_host_vector.hpp"
+#include "md_device_vector.hpp"
 
 using Catch::Matchers::Approx;
 
 constexpr auto f = []() { return pick(0.0, 1.0); };
-using B = hbounds;
+
+template <typename T>
+void compare(const std::vector<T>& t, const std::vector<T>& u)
+{
+    REQUIRE_THAT(t, Approx(u));
+}
+
+template <typename T>
+void compare(const std::vector<T>& t, const thrust::device_vector<T>& u)
+{
+    compare<T>(t, to_std(u));
+}
+
+constexpr auto w = Wb{0, 6};
 
 TEST_CASE("offdiag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 40, k0 = 90;
@@ -35,17 +46,20 @@ TEST_CASE("offdiag")
     const T beta = pick(0.2, 10.0);
     const int sgcw = pick(1, 3);
 
-    vec b0(B{bk0, bk1}, B{bj0, bj1}, B{bi0, bi1 + 1});
-    vec b1(B{bi0, bi1}, B{bk0, bk1}, B{bj0, bj1 + 1});
-    vec b2(B{bj0, bj1}, B{bi0, bi1}, B{bk0, bk1 + 1});
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
+    const auto i = Ib{i0, i1}, bi = Ib{bi0, bi1};
+    const auto j = Jb{j0, j1}, bj = Jb{bj0, bj1};
+    const auto k = Kb{k0, k1}, bk = Kb{bk0, bk1};
 
-    std::generate(b0.begin(), b0.end(), f);
-    std::generate(b1.begin(), b1.end(), f);
-    std::generate(b2.begin(), b2.end(), f);
+    auto b0 = make_md_vec<T>(bk, bj, bi + 1);
+    auto b1 = make_md_vec<T>(bi, bk, bj + 1);
+    auto b2 = make_md_vec<T>(bj, bi, bk + 1);
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+    auto st_cuda = make_md_vec<T>(sgcw, k, j, i, w);
+
+    b0.fill_random();
+    b1.fill_random();
+    b2.fill_random();
+
     celldiffusionoffdiag3d_(i0,
                             j0,
                             k0,
@@ -60,13 +74,12 @@ TEST_CASE("offdiag")
                             bk1,
                             dx.data(),
                             beta,
-                            b0.data(),
-                            b1.data(),
-                            b2.data(),
+                            b0.host_data(),
+                            b1.host_data(),
+                            b2.host_data(),
                             sgcw,
-                            st.data());
+                            st.host_data());
 
-    std::vector<T> st_cuda(st.size());
     cd_stencil_3d_cuda<T>::offdiag(i0,
                                    j0,
                                    k0,
@@ -85,16 +98,14 @@ TEST_CASE("offdiag")
                                    b1.data(),
                                    b2.data(),
                                    sgcw,
-                                   &st_cuda[0]);
+                                   st_cuda.data());
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("poisson offdiag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 40, k0 = 90;
@@ -104,25 +115,24 @@ TEST_CASE("poisson offdiag")
     const T beta = pick(0.2, 10.0);
     const int sgcw = pick(1, 3);
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    cellpoissonoffdiag3d_(i0, j0, k0, i1, j1, k1, dx.data(), beta, sgcw, st.data());
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+    auto st_cuda = make_md_vec<T>(sgcw, k, j, i, w);
 
-    std::vector<T> st_cuda(st.size());
+    cellpoissonoffdiag3d_(i0, j0, k0, i1, j1, k1, dx.data(), beta, sgcw, st.host_data());
+
     cd_stencil_3d_cuda<T>::poisson_offdiag(
-        i0, j0, k0, i1, j1, k1, dx.data(), beta, sgcw, &st_cuda[0]);
+        i0, j0, k0, i1, j1, k1, dx.data(), beta, sgcw, st_cuda.data());
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("v1diag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 90, k0 = 40;
@@ -132,15 +142,17 @@ TEST_CASE("v1diag")
     const int sgcw = pick(1, 3);
     const T alpha = pick(0.1, 10.0);
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
-    vec a{B{ak0, ak1}, B{aj0, aj1}, B{ai0, ai1}};
+    const auto i = Ib{i0, i1}, ai = Ib{ai0, ai1};
+    const auto j = Jb{j0, j1}, aj = Jb{aj0, aj1};
+    const auto k = Kb{k0, k1}, ak = Kb{ak0, ak1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::generate(a.begin(), a.end(), f);
-    std::vector<T> st_cuda{st.vec()};
+    auto a = make_md_vec<T>(ak, aj, ai);
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+
+    a.fill_random();
+    st.fill_random();
+
+    thrust::device_vector<T> st_cuda = st.host();
 
     celldiffusionv1diag3d_(i0,
                            j0,
@@ -155,9 +167,9 @@ TEST_CASE("v1diag")
                            aj1,
                            ak1,
                            alpha,
-                           a.data(),
+                           a.host_data(),
                            sgcw,
-                           st.data());
+                           st.host_data());
 
     cd_stencil_3d_cuda<T>::v1diag(i0,
                                   j0,
@@ -174,16 +186,14 @@ TEST_CASE("v1diag")
                                   alpha,
                                   a.data(),
                                   sgcw,
-                                  &st_cuda[0]);
+                                  thrust::raw_pointer_cast(st_cuda.data()));
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("v2diag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 90, k0 = 40;
@@ -191,26 +201,27 @@ TEST_CASE("v2diag")
     const int sgcw = pick(1, 3);
     const T alpha = pick(0.1, 10.0);
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::vector<T> st_cuda{st.vec()};
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
 
-    celldiffusionv2diag3d_(i0, j0, k0, i1, j1, k1, alpha, sgcw, st.data());
+    st.fill_random();
 
-    cd_stencil_3d_cuda<T>::v2diag(i0, j0, k0, i1, j1, k1, alpha, sgcw, &st_cuda[0]);
+    thrust::device_vector<T> st_cuda = st.host();
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    celldiffusionv2diag3d_(i0, j0, k0, i1, j1, k1, alpha, sgcw, st.host_data());
+
+    cd_stencil_3d_cuda<T>::v2diag(
+        i0, j0, k0, i1, j1, k1, alpha, sgcw, thrust::raw_pointer_cast(st_cuda.data()));
+
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("poisson diag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 40, k0 = 90;
@@ -218,26 +229,27 @@ TEST_CASE("poisson diag")
 
     const int sgcw = pick(1, 3);
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::vector<T> st_cuda{st.vec()};
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
 
-    cellpoissondiag3d_(i0, j0, k0, i1, j1, k1, sgcw, st.data());
+    st.fill_random();
 
-    cd_stencil_3d_cuda<T>::poisson_diag(i0, j0, k0, i1, j1, k1, sgcw, &st_cuda[0]);
+    thrust::device_vector<T> st_cuda = st.host();
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    cellpoissondiag3d_(i0, j0, k0, i1, j1, k1, sgcw, st.host_data());
+
+    cd_stencil_3d_cuda<T>::poisson_diag(
+        i0, j0, k0, i1, j1, k1, sgcw, thrust::raw_pointer_cast(st_cuda.data()));
+
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("adjdiag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 90, k0 = 40;
@@ -248,19 +260,21 @@ TEST_CASE("adjdiag")
     const T beta = pick(0.1, 10.0);
     std::array<T, 3> dx{pick(0.1), pick(0.1), pick(0.1)};
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
-    vec b0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    vec b1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    vec b2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::generate(b0.begin(), b0.end(), f);
-    std::generate(b1.begin(), b1.end(), f);
-    std::generate(b2.begin(), b2.end(), f);
-    std::vector<T> st_cuda{st.vec()};
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+    auto b0 = make_md_vec<T>(k, j, i + 1);
+    auto b1 = make_md_vec<T>(i, k, j + 1);
+    auto b2 = make_md_vec<T>(j, i, k + 1);
+
+    b0.fill_random();
+    b1.fill_random();
+    b2.fill_random();
+    st.fill_random();
+
+    thrust::device_vector<T> st_cuda = st.host();
 
     auto dir = GENERATE(0, 1, 2);
     auto side = GENERATE(0, 1);
@@ -284,11 +298,11 @@ TEST_CASE("adjdiag")
                             exOrder,
                             dx.data(),
                             beta,
-                            b0.data(),
-                            b1.data(),
-                            b2.data(),
+                            b0.host_data(),
+                            b1.host_data(),
+                            b2.host_data(),
                             sgcw,
-                            st.data());
+                            st.host_data());
 
     cd_stencil_3d_cuda<T>::adj_diag(i0,
                                     j0,
@@ -312,16 +326,14 @@ TEST_CASE("adjdiag")
                                     b1.data(),
                                     b2.data(),
                                     sgcw,
-                                    &st_cuda[0]);
+                                    thrust::raw_pointer_cast(st_cuda.data()));
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("adj_poissondiag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 90, k0 = 40;
@@ -332,13 +344,15 @@ TEST_CASE("adj_poissondiag")
     const T beta = pick(0.1, 10.0);
     std::array<T, 3> dx{pick(0.1), pick(0.1), pick(0.1)};
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::vector<T> st_cuda{st.vec()};
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+
+    st.fill_random();
+
+    thrust::device_vector<T> st_cuda = st.host();
 
     auto dir = GENERATE(0, 1, 2);
     auto side = GENERATE(0, 1);
@@ -364,7 +378,7 @@ TEST_CASE("adj_poissondiag")
                           dx.data(),
                           beta,
                           sgcw,
-                          st.data());
+                          st.host_data());
 
     cd_stencil_3d_cuda<T>::adj_poisson_diag(i0,
                                             j0,
@@ -385,16 +399,14 @@ TEST_CASE("adj_poissondiag")
                                             dx.data(),
                                             beta,
                                             sgcw,
-                                            &st_cuda[0]);
+                                            thrust::raw_pointer_cast(st_cuda.data()));
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("adj cfdiag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 90, k0 = 40;
@@ -405,19 +417,21 @@ TEST_CASE("adj cfdiag")
     const T beta = pick(0.1, 10.0);
     std::array<T, 3> dx{pick(0.1), pick(0.1), pick(0.1)};
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
-    vec b0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    vec b1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    vec b2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::generate(b0.begin(), b0.end(), f);
-    std::generate(b1.begin(), b1.end(), f);
-    std::generate(b2.begin(), b2.end(), f);
-    std::vector<T> st_cuda{st.vec()};
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+    auto b0 = make_md_vec<T>(k, j, i + 1);
+    auto b1 = make_md_vec<T>(i, k, j + 1);
+    auto b2 = make_md_vec<T>(j, i, k + 1);
+
+    b0.fill_random();
+    b1.fill_random();
+    b2.fill_random();
+    st.fill_random();
+
+    thrust::device_vector<T> st_cuda = st.host();
 
     auto dir = GENERATE(0, 1, 2);
     auto side = GENERATE(0, 1);
@@ -441,11 +455,11 @@ TEST_CASE("adj cfdiag")
                               intOrder,
                               dx.data(),
                               beta,
-                              b0.data(),
-                              b1.data(),
-                              b2.data(),
+                              b0.host_data(),
+                              b1.host_data(),
+                              b2.host_data(),
                               sgcw,
-                              st.data());
+                              st.host_data());
 
     cd_stencil_3d_cuda<T>::adj_cf_diag(i0,
                                        j0,
@@ -469,16 +483,14 @@ TEST_CASE("adj cfdiag")
                                        b1.data(),
                                        b2.data(),
                                        sgcw,
-                                       &st_cuda[0]);
+                                       thrust::raw_pointer_cast(st_cuda.data()));
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("adj poisson cfdiag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 90, k0 = 40;
@@ -489,13 +501,15 @@ TEST_CASE("adj poisson cfdiag")
     const T beta = pick(0.1, 10.0);
     std::array<T, 3> dx{pick(0.1), pick(0.1), pick(0.1)};
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::vector<T> st_cuda{st.vec()};
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+
+    st.fill_random();
+
+    thrust::device_vector<T> st_cuda = st.host();
 
     auto dir = GENERATE(0, 1, 2);
     auto side = GENERATE(0, 1);
@@ -520,7 +534,7 @@ TEST_CASE("adj poisson cfdiag")
                             dx.data(),
                             beta,
                             sgcw,
-                            st.data());
+                            st.host_data());
 
     cd_stencil_3d_cuda<T>::adj_poisson_cf_diag(i0,
                                                j0,
@@ -541,16 +555,14 @@ TEST_CASE("adj poisson cfdiag")
                                                dx.data(),
                                                beta,
                                                sgcw,
-                                               &st_cuda[0]);
+                                               thrust::raw_pointer_cast(st_cuda.data()));
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("adj offdiag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 90, k0 = 40;
@@ -563,19 +575,21 @@ TEST_CASE("adj offdiag")
     const T neu_factor = pick();
     std::array<T, 3> dx{pick(0.1), pick(0.1), pick(0.1)};
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
-    vec b0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    vec b1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    vec b2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::generate(b0.begin(), b0.end(), f);
-    std::generate(b1.begin(), b1.end(), f);
-    std::generate(b2.begin(), b2.end(), f);
-    std::vector<T> st_cuda{st.vec()};
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+    auto b0 = make_md_vec<T>(k, j, i + 1);
+    auto b1 = make_md_vec<T>(i, k, j + 1);
+    auto b2 = make_md_vec<T>(j, i, k + 1);
+
+    b0.fill_random();
+    b1.fill_random();
+    b2.fill_random();
+    st.fill_random();
+
+    thrust::device_vector<T> st_cuda = st.host();
 
     auto dir = GENERATE(0, 1, 2);
     auto side = GENERATE(0, 1);
@@ -602,11 +616,11 @@ TEST_CASE("adj offdiag")
                                dir_factor,
                                neu_factor,
                                beta,
-                               b0.data(),
-                               b1.data(),
-                               b2.data(),
+                               b0.host_data(),
+                               b1.host_data(),
+                               b2.host_data(),
                                sgcw,
-                               st.data());
+                               st.host_data());
 
     cd_stencil_3d_cuda<T>::adj_offdiag(i0,
                                        j0,
@@ -632,16 +646,14 @@ TEST_CASE("adj offdiag")
                                        b1.data(),
                                        b2.data(),
                                        sgcw,
-                                       &st_cuda[0]);
+                                       thrust::raw_pointer_cast(st_cuda.data()));
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("adj poisson offdiag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 90, k0 = 40;
@@ -654,13 +666,15 @@ TEST_CASE("adj poisson offdiag")
     const T neu_factor = pick();
     std::array<T, 3> dx{pick(0.1), pick(0.1), pick(0.1)};
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::vector<T> st_cuda{st.vec()};
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+
+    st.fill_random();
+
+    thrust::device_vector<T> st_cuda = st.host();
 
     auto dir = GENERATE(0, 1, 2);
     auto side = GENERATE(0, 1);
@@ -688,7 +702,7 @@ TEST_CASE("adj poisson offdiag")
                              neu_factor,
                              beta,
                              sgcw,
-                             st.data());
+                             st.host_data());
 
     cd_stencil_3d_cuda<T>::adj_poisson_offdiag(i0,
                                                j0,
@@ -711,16 +725,14 @@ TEST_CASE("adj poisson offdiag")
                                                neu_factor,
                                                beta,
                                                sgcw,
-                                               &st_cuda[0]);
+                                               thrust::raw_pointer_cast(st_cuda.data()));
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("adj cf offdiag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 90, k0 = 40;
@@ -729,13 +741,15 @@ TEST_CASE("adj cf offdiag")
     const int pi1 = i1 - 3, pj1 = j1 - 4, pk1 = k1 - 4;
     const int sgcw = pick(1, 3);
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::vector<T> st_cuda{st.vec()};
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+
+    st.fill_random();
+
+    thrust::device_vector<T> st_cuda = st.host();
 
     auto dir = GENERATE(0, 1, 2);
     auto side = GENERATE(0, 1);
@@ -759,7 +773,7 @@ TEST_CASE("adj cf offdiag")
                                  side,
                                  intOrder,
                                  sgcw,
-                                 st.data());
+                                 st.host_data());
 
     cd_stencil_3d_cuda<T>::adj_cf_offdiag(i0,
                                           j0,
@@ -778,16 +792,14 @@ TEST_CASE("adj cf offdiag")
                                           side,
                                           intOrder,
                                           sgcw,
-                                          &st_cuda[0]);
+                                          thrust::raw_pointer_cast(st_cuda.data()));
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("readj offdiag")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 90, k0 = 40;
@@ -796,19 +808,35 @@ TEST_CASE("readj offdiag")
     const int pi1 = i1 - 3, pj1 = j1 - 4, pk1 = k1 - 4;
     const int sgcw = pick(1, 3);
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::vector<T> st_cuda{st.vec()};
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+
+    st.fill_random();
+
+    thrust::device_vector<T> st_cuda = st.host();
 
     auto dir = GENERATE(0, 1, 2);
     auto side = GENERATE(0, 1);
 
-    readjcelldiffusionoffdiag3d_(
-        i0, j0, k0, i1, j1, k1, pi0, pj0, pk0, pi1, pj1, pk1, dir, side, sgcw, st.data());
+    readjcelldiffusionoffdiag3d_(i0,
+                                 j0,
+                                 k0,
+                                 i1,
+                                 j1,
+                                 k1,
+                                 pi0,
+                                 pj0,
+                                 pk0,
+                                 pi1,
+                                 pj1,
+                                 pk1,
+                                 dir,
+                                 side,
+                                 sgcw,
+                                 st.host_data());
 
     cd_stencil_3d_cuda<T>::readj_offdiag(i0,
                                          j0,
@@ -825,16 +853,14 @@ TEST_CASE("readj offdiag")
                                          dir,
                                          side,
                                          sgcw,
-                                         &st_cuda[0]);
+                                         thrust::raw_pointer_cast(st_cuda.data()));
 
-    REQUIRE_THAT(st.vec(), Approx(st_cuda));
+    compare<T>(st, st_cuda);
 }
 
 TEST_CASE("adj cf bdryrhs")
 {
     using T = double;
-    using vec = md_host_vector<T, 3>;
-    using wvec = md_host_vector<T, 4>;
     randomize();
 
     const int i0 = 10, j0 = 90, k0 = 40;
@@ -844,17 +870,19 @@ TEST_CASE("adj cf bdryrhs")
     const int sgcw = pick(1, 3);
     const int gcw = pick(1, 3);
 
-    wvec st(B{k0 - sgcw, k1 + sgcw},
-            B{j0 - sgcw, j1 + sgcw},
-            B{i0 - sgcw, i1 + sgcw},
-            B{0, 6});
-    vec u(B{k0 - gcw, k1 + gcw}, B{j0 - gcw, j1 + gcw}, B{i0 - gcw, i1 + gcw});
-    vec rhs(B{k0, k1}, B{j0, j1}, B{i0, i1});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(st.begin(), st.end(), f);
-    std::generate(u.begin(), u.end(), f);
-    std::generate(rhs.begin(), rhs.end(), f);
-    std::vector<T> rhs_cuda{rhs.vec()};
+    auto st = make_md_vec<T>(sgcw, k, j, i, w);
+    auto u = make_md_vec<T>(gcw, k, j, i);
+    auto rhs = make_md_vec<T>(k, j, i);
+
+    st.fill_random();
+    u.fill_random();
+    rhs.fill_random();
+
+    thrust::device_vector<T> rhs_cuda = rhs.host();
 
     auto dir = GENERATE(0, 1, 2);
     auto side = GENERATE(0, 1);
@@ -874,10 +902,10 @@ TEST_CASE("adj cf bdryrhs")
                                  dir,
                                  side,
                                  sgcw,
-                                 st.data(),
+                                 st.host_data(),
                                  gcw,
-                                 u.data(),
-                                 rhs.data());
+                                 u.host_data(),
+                                 rhs.host_data());
 
     cd_stencil_3d_cuda<T>::adj_cf_bdryrhs(i0,
                                           j0,
@@ -897,7 +925,7 @@ TEST_CASE("adj cf bdryrhs")
                                           st.data(),
                                           gcw,
                                           u.data(),
-                                          &rhs_cuda[0]);
+                                          thrust::raw_pointer_cast(rhs_cuda.data()));
 
-    REQUIRE_THAT(rhs.vec(), Approx(rhs_cuda));
+    compare<T>(rhs, rhs_cuda);
 }

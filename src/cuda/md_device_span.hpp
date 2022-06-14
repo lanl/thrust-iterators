@@ -1,13 +1,16 @@
 #pragma once
 
-#include "lazy_math.hpp"
+#include "iter_math.hpp"
 #include "stencil_proxy.hpp"
 #include "thrust/for_each.h"
 #include "traits.hpp"
 
 #include <thrust/execution_policy.h>
+#include <thrust/device_ptr.h>
 #include <type_traits>
 #include <utility>
+
+#include "md_bounds.hpp"
 
 #include "submatrix_iterator.hpp"
 #include "coarse_to_fine_iterator.hpp"
@@ -31,124 +34,6 @@
 static constexpr auto up = mp::mp_int<1>{};
 static constexpr auto down = mp::mp_int<-1>{};
 
-struct bounds {
-    int first;
-    int last;
-
-    bounds() = default;
-    bounds(int first, int last, bool inclusive = true)
-        : first{first}, last{last + inclusive}
-    {
-    }
-
-    // operator+ increments the last bound
-    bounds& operator+=(int x)
-    {
-        last += x;
-        return *this;
-    }
-    bounds friend operator+(bounds b, int x)
-    {
-        b += x;
-        return b;
-    }
-    // operator- decrements the first bound
-    bounds& operator-=(int x)
-    {
-        first -= x;
-        return *this;
-    }
-
-    bounds friend operator-(bounds b, int x)
-    {
-        b -= x;
-        return b;
-    }
-
-    bounds expand(int x) const
-    {
-        bounds b{*this};
-        b -= x;
-        b += x;
-        return b;
-    }
-
-    int lb() const { return first; }
-    int ub() const { return last - 1; }
-
-    int size() const { return last - first; }
-};
-
-// Generally, the user will not be required to use anything in the `lazy` namespace
-namespace lazy
-{
-
-// The data coming from amp are multidimensional fortran arrays.  Using `bounds` allows
-// for intuitive construction of our lazy vectors.  Using the templated `dir_bounds`
-// allows us to record the order of the data.  cell/node data are standard KJI order, face
-// data are all different.  Recordning the constructed order faciliates automatic
-// transpose iterators in the lazy_vec call operator
-//
-// The bounds on the incoming data are generally perturbations around some "base".  We use
-// +/-/expand to express that perturbation
-template <int I>
-struct dir_bounds : bounds {
-    dir_bounds() = default;
-    dir_bounds(int f, int l, bool inclusive = true) : bounds(f, l, inclusive) {}
-    dir_bounds(const bounds& bnd) : bounds(bnd) {}
-
-    dir_bounds friend operator+(dir_bounds b, int x)
-    {
-        // ensure that adding a negative number adjust the lower bound
-        if (x >= 0)
-            b += x;
-        else
-            b -= (-x);
-
-        return b;
-    }
-
-    dir_bounds friend operator-(dir_bounds b, int x)
-    {
-        b -= x;
-        return b;
-    }
-
-    dir_bounds expand(int x) const
-    {
-        dir_bounds b{*this};
-        b -= x;
-        b += x;
-        return b;
-    }
-
-    dir_bounds shift(int x) const
-    {
-        dir_bounds b{*this};
-        b.first += x;
-        b.last += x;
-        return b;
-    }
-};
-
-namespace dim
-{
-enum { K = 0, J, I, W };
-}
-} // namespace lazy
-
-//
-// These are the types the user will use to construct bounds in the I, J, and K
-// directions.
-//
-using Ib = lazy::dir_bounds<lazy::dim::I>;
-using Jb = lazy::dir_bounds<lazy::dim::J>;
-using Kb = lazy::dir_bounds<lazy::dim::K>;
-
-//
-// A separate type for "window" bounds needed for the window iterator
-//
-using Wb = lazy::dir_bounds<lazy::dim::W>;
 
 //
 // After constructing bounds i,j,k using Ib,Jb,Kb, the user should be able to intuitively
@@ -193,7 +78,7 @@ struct assign_proxy {
 // assign_proxy with the desired bounds.  Therefore, we need to store this calculation in
 // a callable object that will do the right thing as a member of transform_op.
 template <int Shift, typename T, int I>
-struct stencil_helper : lazy_vec_math<stencil_helper<Shift, T, I>> {
+struct stencil_helper : iter_math<stencil_helper<Shift, T, I>> {
     T t;
 
     stencil_helper(T&& t) : t{FWD(t)} {}
@@ -228,7 +113,7 @@ stencil_helper<Shift, Vec, N> make_stencil_transform(Vec&& vec)
 // the specified amount
 //
 template <typename T, int I>
-struct shift_helper : lazy_vec_math<shift_helper<T, I>> {
+struct shift_helper : iter_math<shift_helper<T, I>> {
     T t;
     int s;
 
@@ -248,7 +133,7 @@ shift_helper<Vec, N> make_shift_transform(Vec&& vec, int s)
 }
 
 template <typename T>
-struct coarse_helper : lazy_vec_math<coarse_helper<T>> {
+struct coarse_helper : iter_math<coarse_helper<T>> {
     T t;
     int r;
 
@@ -262,7 +147,7 @@ struct coarse_helper : lazy_vec_math<coarse_helper<T>> {
 };
 
 template <typename T, int... Order, int... O>
-auto make_coarse_transform(lazy_vector<T, Order...>& v,
+auto make_coarse_transform(md_device_span<T, Order...>& v,
                            int ratio,
                            dir_bounds<O>... coarse_bnds)
 {
@@ -337,35 +222,32 @@ constexpr auto with_lhs_domain(T&& t)
 }
 
 //
-// lazy_vector class -> The primary interaction with be: construction, call operator (via
-// with_domain), grad_x/y/z methods and math operators.  The dimension ordering is
+// md_device_span class -> The primary interaction with be: construction, call operator
+// (via with_domain), grad_x/y/z methods and math operators.  The dimension ordering is
 // recorded via the Order parameter pack and used to faciliate seamless reording in the
 // call operator
 //
 template <typename T, int... Order>
-class lazy_vector : lazy::lazy_vec_math<lazy_vector<T, Order...>>
+class md_device_span : lazy::iter_math<md_device_span<T, Order...>>
 {
 
 public:
     static constexpr auto N = sizeof...(Order);
 
-    lazy_vector() = default;
+    md_device_span() = default;
 
-    lazy_vector(const T* v, lazy::dir_bounds<Order>... bnds)
-        : v(v, v + (bnds.size() * ...)), b{bnds...}
-    {
-    }
+    md_device_span(T* v, lazy::dir_bounds<Order>... bnds) : v(v), b{bnds...} {}
 
     template <typename V>
     auto operator=(V&& v) &
     {
-        return lazy::assign_proxy<lazy_vector&, V>{*this, FWD(v)};
+        return lazy::assign_proxy<md_device_span&, V>{*this, FWD(v)};
     }
 
     template <typename V, typename = std::enable_if_t<is_stencil_proxy_v<V>>>
     auto operator-=(V&& v) &
     {
-        return lazy::self_assign_proxy<lazy_vector&, decltype(-FWD(v) + *this)>{
+        return lazy::self_assign_proxy<md_device_span&, decltype(-FWD(v) + *this)>{
             *this, -FWD(v) + *this};
     }
 
@@ -373,7 +255,7 @@ public:
 //     template <typename V, typename = std::enable_if_t<is_stencil_proxy_v<V>>>            \
 //     auto op(V&& v)&                                                                      \
 //     {                                                                                    \
-//         return lazy::self_assign_proxy<lazy_vector&, decltype(*this infix FWD(v))>{      \
+//         return lazy::self_assign_proxy<md_device_span&, decltype(*this infix FWD(v))>{      \
 //             *this, *this infix FWD(v)};                                                  \
 //     }
 
@@ -574,12 +456,14 @@ public:
         return make_coarse_to_fine<map_index_v<Base, I>, N>(begin(), sz, lb, fi, r);
     }
 
-    auto begin() { return v.begin(); }
-    auto begin() const { return v.begin(); }
-    auto end() { return v.end(); }
-    auto end() const { return v.end(); }
+    auto begin() { return v; }
+    auto begin() const { return v; }
+    auto end() { return v; }
+    auto end() const { return v; }
 
-    auto copy_to(T* t) const { return thrust::copy(begin(), end(), t); }
+    auto copy_to(T*) const
+    { /* return thrust::copy(begin(), end(), t); */
+    }
 
     std::tuple<lazy::dir_bounds<Order>...> dir_bounds() const
     {
@@ -587,31 +471,36 @@ public:
     }
 
 private:
-    thrust::device_vector<T> v;
+    thrust::device_ptr<T> v;
     bounds b[N]; // std::array<bounds, N> b;
 };
 
 template <typename T, auto... Order>
-lazy_vector<T, Order...> make_vec(const T* t, const lazy::dir_bounds<Order>&... bnds)
+md_device_span<T, Order...> make_md_span(T* t, const lazy::dir_bounds<Order>&... bnds)
 {
     return {t, bnds...};
 }
 
-namespace detail
+template <typename T, auto... Order>
+md_device_span<const T, Order...> make_md_span(const T* t,
+                                               const lazy::dir_bounds<Order>&... bnds)
 {
-template <auto N>
-constexpr auto expand_bounds(int offset, const lazy::dir_bounds<N>& b)
-{
-    if constexpr (N == lazy::dim::W)
-        return b;
-    else
-        return b.expand(offset);
+    return {t, bnds...};
 }
-} // namespace detail
+
 
 template <typename T, auto... Order>
-lazy_vector<T, Order...>
-make_vec(const T* t, int offset, const lazy::dir_bounds<Order>&... bnds)
+md_device_span<T, Order...>
+make_md_span(T* t, int offset, const lazy::dir_bounds<Order>&... bnds)
+{
+
+    // return {t, bnds.expand(offset)...};
+    return {t, detail::expand_bounds(offset, bnds)...};
+}
+
+template <typename T, auto... Order>
+md_device_span<const T, Order...>
+make_md_span(const T* t, int offset, const lazy::dir_bounds<Order>&... bnds)
 {
 
     // return {t, bnds.expand(offset)...};

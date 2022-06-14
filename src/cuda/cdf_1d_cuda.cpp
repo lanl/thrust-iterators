@@ -1,6 +1,6 @@
 #include "../cd_flux_1d_cuda.hpp"
 
-#include "md_lazy_vector.hpp"
+#include "md_device_span.hpp"
 
 template <typename T>
 void cdf_1d_cuda<T>::flux(const int& i0,
@@ -13,9 +13,9 @@ void cdf_1d_cuda<T>::flux(const int& i0,
 {
     const auto i = Ib{i0, i1};
 
-    auto u = make_vec(u_, gcw, i);
-    auto f0 = make_vec(f0_, i + 1);
-    auto b0 = make_vec(b0_, i + 1);
+    auto u = make_md_span(u_, gcw, i);
+    auto f0 = make_md_span(f0_, i + 1);
+    auto b0 = make_md_span(b0_, i + 1);
 
     with_lhs_domain(f0 = b0 * u.grad_x(dx[0], down));
 
@@ -28,8 +28,8 @@ void cdf_1d_cuda<T>::poisson_flux(
 {
     const auto i = Ib{i0, i1};
 
-    auto u = make_vec(u_, gcw, i);
-    auto f0 = make_vec(f0_, i + 1);
+    auto u = make_md_span(u_, gcw, i);
+    auto f0 = make_md_span(f0_, i + 1);
 
     with_lhs_domain(f0 = u.grad_x(dx[0], down));
 

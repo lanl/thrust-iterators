@@ -1,6 +1,6 @@
 #include "../cd_apply_3d_cuda.hpp"
 
-#include "md_lazy_vector.hpp"
+#include "md_device_span.hpp"
 
 template <typename T>
 void cd_apply_3d_cuda<T>::diffusion_v1_res(const int& i0,
@@ -28,13 +28,13 @@ void cd_apply_3d_cuda<T>::diffusion_v1_res(const int& i0,
     const auto j = Jb{j0, j1};
     const auto k = Kb{k0, k1};
 
-    auto a = make_vec(a_, agcw, k, j, i);
-    auto u = make_vec(u_, ugcw, k, j, i);
-    auto f = make_vec(f_, fgcw, k, j, i);
-    auto res = make_vec(res_, rgcw, k, j, i);
-    auto f0 = make_vec(f0_, k, j, i + 1);
-    auto f1 = make_vec(f1_, i, k, j + 1);
-    auto f2 = make_vec(f2_, j, i, k + 1);
+    auto a = make_md_span(a_, agcw, k, j, i);
+    auto u = make_md_span(u_, ugcw, k, j, i);
+    auto f = make_md_span(f_, fgcw, k, j, i);
+    auto res = make_md_span(res_, rgcw, k, j, i);
+    auto f0 = make_md_span(f0_, k, j, i + 1);
+    auto f1 = make_md_span(f1_, i, k, j + 1);
+    auto f2 = make_md_span(f2_, j, i, k + 1);
 
     with_domain(k, j, i)(
         res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])) -
@@ -66,12 +66,12 @@ void cd_apply_3d_cuda<T>::diffusion_v2_res(const int& i0,
     const auto j = Jb{j0, j1};
     const auto k = Kb{k0, k1};
 
-    auto u = make_vec(u_, ugcw, k, j, i);
-    auto f = make_vec(f_, fgcw, k, j, i);
-    auto res = make_vec(res_, rgcw, k, j, i);
-    auto f0 = make_vec(f0_, k, j, i + 1);
-    auto f1 = make_vec(f1_, i, k, j + 1);
-    auto f2 = make_vec(f2_, j, i, k + 1);
+    auto u = make_md_span(u_, ugcw, k, j, i);
+    auto f = make_md_span(f_, fgcw, k, j, i);
+    auto res = make_md_span(res_, rgcw, k, j, i);
+    auto f0 = make_md_span(f0_, k, j, i + 1);
+    auto f1 = make_md_span(f1_, i, k, j + 1);
+    auto f2 = make_md_span(f2_, j, i, k + 1);
 
     with_domain(k, j, i)(
         res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])) -
@@ -100,11 +100,11 @@ void cd_apply_3d_cuda<T>::poisson_v1_res(const int& i0,
     const auto j = Jb{j0, j1};
     const auto k = Kb{k0, k1};
 
-    auto f = make_vec(f_, fgcw, k, j, i);
-    auto res = make_vec(res_, rgcw, k, j, i);
-    auto f0 = make_vec(f0_, k, j, i + 1);
-    auto f1 = make_vec(f1_, i, k, j + 1);
-    auto f2 = make_vec(f2_, j, i, k + 1);
+    auto f = make_md_span(f_, fgcw, k, j, i);
+    auto res = make_md_span(res_, rgcw, k, j, i);
+    auto f0 = make_md_span(f0_, k, j, i + 1);
+    auto f1 = make_md_span(f1_, i, k, j + 1);
+    auto f2 = make_md_span(f2_, j, i, k + 1);
 
     with_domain(k, j, i)(
         res = f + beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])));
@@ -135,12 +135,12 @@ void cd_apply_3d_cuda<T>::diffusion_v1_apply(const int& i0,
     const auto j = Jb{j0, j1};
     const auto k = Kb{k0, k1};
 
-    auto a = make_vec(a_, agcw, k, j, i);
-    auto u = make_vec(u_, ugcw, k, j, i);
-    auto res = make_vec(res_, rgcw, k, j, i);
-    auto f0 = make_vec(f0_, k, j, i + 1);
-    auto f1 = make_vec(f1_, i, k, j + 1);
-    auto f2 = make_vec(f2_, j, i, k + 1);
+    auto a = make_md_span(a_, agcw, k, j, i);
+    auto u = make_md_span(u_, ugcw, k, j, i);
+    auto res = make_md_span(res_, rgcw, k, j, i);
+    auto f0 = make_md_span(f0_, k, j, i + 1);
+    auto f1 = make_md_span(f1_, i, k, j + 1);
+    auto f2 = make_md_span(f2_, j, i, k + 1);
 
     with_domain(k, j, i)(
         res = -beta * (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])) +
@@ -171,11 +171,11 @@ void cd_apply_3d_cuda<T>::diffusion_v2_apply(const int& i0,
     const auto j = Jb{j0, j1};
     const auto k = Kb{k0, k1};
 
-    auto u = make_vec(u_, ugcw, k, j, i);
-    auto res = make_vec(res_, rgcw, k, j, i);
-    auto f0 = make_vec(f0_, k, j, i + 1);
-    auto f1 = make_vec(f1_, i, k, j + 1);
-    auto f2 = make_vec(f2_, j, i, k + 1);
+    auto u = make_md_span(u_, ugcw, k, j, i);
+    auto res = make_md_span(res_, rgcw, k, j, i);
+    auto f0 = make_md_span(f0_, k, j, i + 1);
+    auto f1 = make_md_span(f1_, i, k, j + 1);
+    auto f2 = make_md_span(f2_, j, i, k + 1);
 
     with_domain(k, j, i)(
         res =
@@ -203,10 +203,10 @@ void cd_apply_3d_cuda<T>::poisson_v2_apply(const int& i0,
     const auto j = Jb{j0, j1};
     const auto k = Kb{k0, k1};
 
-    auto res = make_vec(res_, rgcw, k, j, i);
-    auto f0 = make_vec(f0_, k, j, i + 1);
-    auto f1 = make_vec(f1_, i, k, j + 1);
-    auto f2 = make_vec(f2_, j, i, k + 1);
+    auto res = make_md_span(res_, rgcw, k, j, i);
+    auto f0 = make_md_span(f0_, k, j, i + 1);
+    auto f1 = make_md_span(f1_, i, k, j + 1);
+    auto f2 = make_md_span(f2_, j, i, k + 1);
 
     with_domain(k, j, i)(res = -beta *
                                (f0.grad_x(dx[0]) + f1.grad_y(dx[1]) + f2.grad_z(dx[2])));

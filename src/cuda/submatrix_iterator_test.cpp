@@ -19,7 +19,7 @@ void submatrix_test_cuda<N, T>::init(T* v,
     for (int i = 0; i < N; i++) n[i] = ub[i] - lb[i] + 1;
 
     thrust::device_vector<T> x(v, v + z);
-    printf("vector sz: %d\n", z);
+
     {
         auto s = make_submatrix(x.begin(), sz, lb, ub);
 //        s.print_current();

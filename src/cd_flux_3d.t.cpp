@@ -11,19 +11,21 @@
 #include <algorithm>
 
 #include "cd_flux_3d_cuda.hpp"
-#include "md_host_vector.hpp"
+#include "md_device_vector.hpp"
 
 using Catch::Matchers::Approx;
 
 constexpr auto f = []() { return pick(0.0, 1.0); };
-using B = hbounds;
-static constexpr auto N = 3;
-using Dims = std::array<B, N>;
+
+template <typename T>
+void compare(const std::vector<T>& t, const std::vector<T>& u)
+{
+    REQUIRE_THAT(t, Approx(u));
+}
 
 TEST_CASE("flux")
 {
     using T = double;
-    using vec = md_host_vector<T, N>;
     randomize();
 
     const int i0 = 10, j0 = 11, k0 = 12;
@@ -31,21 +33,25 @@ TEST_CASE("flux")
     const std::array dx{0.1, 0.5, 0.3};
     const int gcw = 5;
 
-    vec u(B{k0 - gcw, k1 + gcw}, B{j0 - gcw, j1 + gcw}, B{i0 - gcw, i1 + gcw});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    vec b0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    vec f0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
+    auto u = make_md_vec<T>(gcw, k, j, i);
+    auto b0 = make_md_vec<T>(k, j, i + 1);
+    auto f0 = make_md_vec<T>(k, j, i + 1);
+    auto f0_cuda = make_md_vec<T>(k, j, i + 1);
+    auto b1 = make_md_vec<T>(i, k, j + 1);
+    auto f1 = make_md_vec<T>(i, k, j + 1);
+    auto f1_cuda = make_md_vec<T>(i, k, j + 1);
+    auto b2 = make_md_vec<T>(j, i, k + 1);
+    auto f2 = make_md_vec<T>(j, i, k + 1);
+    auto f2_cuda = make_md_vec<T>(j, i, k + 1);
 
-    vec b1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    vec f1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-
-    vec b2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
-    vec f2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
-
-    std::generate(b0.begin(), b0.end(), f);
-    std::generate(b1.begin(), b1.end(), f);
-    std::generate(b2.begin(), b2.end(), f);
-    std::generate(u.begin(), u.end(), f);
+    b0.fill_random();
+    b1.fill_random();
+    b2.fill_random();
+    u.fill_random();
 
     celldiffusionflux3d_(i0,
                          j0,
@@ -54,18 +60,15 @@ TEST_CASE("flux")
                          j1,
                          k1,
                          dx.data(),
-                         b0.data(),
-                         b1.data(),
-                         b2.data(),
+                         b0.host_data(),
+                         b1.host_data(),
+                         b2.host_data(),
                          gcw,
-                         u.data(),
-                         f0.data(),
-                         f1.data(),
-                         f2.data());
+                         u.host_data(),
+                         f0.host_data(),
+                         f1.host_data(),
+                         f2.host_data());
 
-    std::vector<T> f0_cuda(f0.size());
-    std::vector<T> f1_cuda(f1.size());
-    std::vector<T> f2_cuda(f2.size());
     cdf_3d_cuda<T>::flux(i0,
                          j0,
                          k0,
@@ -78,20 +81,17 @@ TEST_CASE("flux")
                          b2.data(),
                          gcw,
                          u.data(),
-                         &f0_cuda[0],
-                         &f1_cuda[0],
-                         &f2_cuda[0]);
-
-    REQUIRE_THAT(f0.vec(), Approx(f0_cuda));
-    REQUIRE_THAT(f1.vec(), Approx(f1_cuda));
-    REQUIRE_THAT(f2.vec(), Approx(f2_cuda));
+                         f0_cuda.data(),
+                         f1_cuda.data(),
+                         f2_cuda.data());
+    compare<T>(f0, f0_cuda);
+    compare<T>(f1, f1_cuda);
+    compare<T>(f2, f2_cuda);
 }
 
 TEST_CASE("poisson")
 {
     using T = double;
-    using vec = md_host_vector<T, N>;
-
     randomize();
 
     const int i0 = 35, j0 = 12, k0 = 102;
@@ -99,12 +99,19 @@ TEST_CASE("poisson")
     const std::array dx{0.15, 0.13, 0.9};
     const int gcw = 2;
 
-    vec u(B{k0 - gcw, k1 + gcw}, B{j0 - gcw, j1 + gcw}, B{i0 - gcw, i1 + gcw});
-    vec f0(B{k0, k1}, B{j0, j1}, B{i0, i1 + 1});
-    vec f1(B{i0, i1}, B{k0, k1}, B{j0, j1 + 1});
-    vec f2(B{j0, j1}, B{i0, i1}, B{k0, k1 + 1});
+    const auto i = Ib{i0, i1};
+    const auto j = Jb{j0, j1};
+    const auto k = Kb{k0, k1};
 
-    std::generate(u.begin(), u.end(), f);
+    auto u = make_md_vec<T>(gcw, k, j, i);
+    auto f0 = make_md_vec<T>(k, j, i + 1);
+    auto f0_cuda = make_md_vec<T>(k, j, i + 1);
+    auto f1 = make_md_vec<T>(i, k, j + 1);
+    auto f1_cuda = make_md_vec<T>(i, k, j + 1);
+    auto f2 = make_md_vec<T>(j, i, k + 1);
+    auto f2_cuda = make_md_vec<T>(j, i, k + 1);
+
+    u.fill_random();
 
     cellpoissonflux3d_(i0,
                        j0,
@@ -114,14 +121,11 @@ TEST_CASE("poisson")
                        k1,
                        dx.data(),
                        gcw,
-                       u.data(),
-                       f0.data(),
-                       f1.data(),
-                       f2.data());
+                       u.host_data(),
+                       f0.host_data(),
+                       f1.host_data(),
+                       f2.host_data());
 
-    std::vector<T> f0_cuda(f0.size());
-    std::vector<T> f1_cuda(f1.size());
-    std::vector<T> f2_cuda(f2.size());
     cdf_3d_cuda<T>::poisson_flux(i0,
                                  j0,
                                  k0,
@@ -131,11 +135,11 @@ TEST_CASE("poisson")
                                  dx.data(),
                                  gcw,
                                  u.data(),
-                                 &f0_cuda[0],
-                                 &f1_cuda[0],
-                                 &f2_cuda[0]);
+                                 f0_cuda.data(),
+                                 f1_cuda.data(),
+                                 f2_cuda.data());
 
-    REQUIRE_THAT(f0.vec(), Approx(f0_cuda));
-    REQUIRE_THAT(f1.vec(), Approx(f1_cuda));
-    REQUIRE_THAT(f2.vec(), Approx(f2_cuda));
+    compare<T>(f0, f0_cuda);
+    compare<T>(f1, f1_cuda);
+    compare<T>(f2, f2_cuda);
 }

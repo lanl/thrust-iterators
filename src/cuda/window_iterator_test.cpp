@@ -1,6 +1,5 @@
 
-#include "lazy_math.hpp"
-#include "md_lazy_vector.hpp"
+#include "md_device_span.hpp"
 #include "traits.hpp"
 #include "window_iterator.hpp"
 
@@ -19,7 +18,7 @@ void window_test_cuda<T>::init(T* v_, int n)
     const auto i = Ib{1, 2};
     const auto w = Wb{0, 4};
 
-    auto v = make_vec(v_, i, w);
+    auto v = make_md_span(v_, i, w);
 
     auto st = v.window()(i);
     auto it = *st;
@@ -32,8 +31,6 @@ void window_test_cuda<T>::init(T* v_, int n)
     ++st;
     f0(*st);
     f1(*st);
-
-    v.copy_to(v_);
 }
 
 template <typename T>
@@ -43,11 +40,9 @@ void window_test_cuda<T>::transform(T* v_, int n)
     const auto i = Ib{1, 5};
     const auto w = Wb{0, 1};
 
-    auto v = make_vec(v_, i, w);
+    auto v = make_md_span(v_, i, w);
 
     with_domain(v.window(), i)(v(0) = 1.0, v(1) = v(1) + 2.0);
-
-    v.copy_to(v_);
 }
 
 template <typename T>
@@ -57,12 +52,10 @@ void window_test_cuda<T>::transform2(T* v_, int n)
     const auto i = Ib{1, 5};
     const auto w = Wb{0, 2};
 
-    auto v = make_vec(v_, i, w);
+    auto v = make_md_span(v_, i, w);
     T x = 4;
 
     with_domain(v.window(), i)(v(0) = -(v(1) + v(2)) + x - 1);
-
-    v.copy_to(v_);
 }
 
 template <typename T>
@@ -72,8 +65,8 @@ void window_test_cuda<T>::transform3(T* v_, int n, const T* u_)
     const auto i = Ib{1, 5};
     const auto w = Wb{0, 2};
 
-    auto v = make_vec(v_, i, w);
-    auto u = make_vec(u_, i);
+    auto v = make_md_span(v_, i, w);
+    auto u = make_md_span(u_, i);
     T x = 4;
 
     auto f = -(v(1) + v(2)) + 3 * u;
@@ -84,7 +77,7 @@ void window_test_cuda<T>::transform3(T* v_, int n, const T* u_)
     using YY = lazy::stencil_proxy<0, int, Y, lazy::multiplies>;
     static_assert(std::is_same_v<YY, decltype(-(v(1) + v(2)))>);
 
-    using V = lazy_vector<T, lazy::dim::I>;
+    using V = md_device_span<const T, lazy::dim::I>;
     static_assert(std::is_same_v<V, decltype(u)>);
     using Z = lazy::transform_op<int, V&, lazy::multiplies>;
     static_assert(std::is_same_v<Z, decltype(3 * u)>);
@@ -95,8 +88,6 @@ void window_test_cuda<T>::transform3(T* v_, int n, const T* u_)
     static_assert(tp_size<decltype(*it)> == 1);
     T u3 = thrust::get<0>(*it);
     with_domain(v.window(), i)(v(0) = -(v(1) + v(2)) + 3 * u);
-
-    v.copy_to(v_);
 }
 
 template <typename T>
@@ -106,15 +97,13 @@ void window_test_cuda<T>::transform4(T* v_, int n, const T* u_)
     const auto i = Ib{1, 5};
     const auto w = Wb{0, 3};
 
-    auto v = make_vec(v_, i, w);
-    auto u = make_vec(u_, i);
+    auto v = make_md_span(v_, i, w);
+    auto u = make_md_span(u_, i);
     T x = 4;
 
     auto f = 3 * u;
 
     with_domain(v.window(), i)(v(0) = -(v(2) + v(3)) - f, v(1) = 2 * f);
-
-    v.copy_to(v_);
 }
 
 template <typename T>
@@ -125,9 +114,9 @@ void window_test_cuda<T>::rhs(T* rhs_, const T* v_, int n, const T* u_)
     const auto i = Ib{1, 5};
     const auto w = Wb{0, 3};
 
-    auto rhs = make_vec(rhs_, i);
-    auto v = make_vec(v_, i, w);
-    auto u = make_vec(u_, i);
+    auto rhs = make_md_span(rhs_, i);
+    auto v = make_md_span(v_, i, w);
+    auto u = make_md_span(u_, i);
 
     auto c = (rhs -= v(1) * u);
     static_assert(is_self_assign_proxy_v<decltype(c)>);
@@ -136,7 +125,6 @@ void window_test_cuda<T>::rhs(T* rhs_, const T* v_, int n, const T* u_)
     static_assert(is_stencil_proxy_v<decltype(d)>);
 
     with_domain(v.window(), i)(rhs -= v(1) * u);
-    rhs.copy_to(rhs_);
 
     using L = index_list<lazy::dim::K, lazy::dim::J, lazy::dim::I>;
     using M = index_list<lazy::dim::K, lazy::dim::J>;

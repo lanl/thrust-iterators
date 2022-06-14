@@ -80,8 +80,6 @@ void forward_stencil_test_cuda<T, N, I>::transform(const T* v, const int (&dims)
     auto stride = stride_dim<I, N>(dims);
     auto u_sz = stride_dim<-1, N>(udims);
 
-    printf("limit/stride/u_sz: %d / %d / %d\n", limit, stride, u_sz);
-
     thrust::device_vector<T> x(v, v + n);
     thrust::device_vector<T> y(u, u + u_sz);
 
