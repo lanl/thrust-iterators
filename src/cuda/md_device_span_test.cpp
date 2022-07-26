@@ -30,6 +30,25 @@ void md_device_span_cuda<T>::init(const int& i0,
 }
 
 template <typename T>
+void md_device_span_cuda<T>::stride(const int& i0,
+                                    const int& i1,
+                                    const int& stride,
+                                    const T& beta,
+                                    const T* dx,
+                                    const int ugcw,
+                                    const T* u_,
+                                    const int& rgcw,
+                                    T* res_)
+{
+    const auto i = Ib{i0, i1, stride};
+
+    auto u = make_md_span(u_, ugcw, i);
+    auto res = make_md_span(res_, rgcw, i);
+
+    with_domain(i)(res = beta * u);
+}
+
+template <typename T>
 void md_device_span_cuda<T>::init(const int& i0,
                                   const int& i1,
                                   const int& j0,
@@ -59,5 +78,56 @@ void md_device_span_cuda<T>::init(const int& i0,
     static_assert(is_iter_math_v<decltype(u)>);
     static_assert(is_iter_math_v<decltype(u + 3)>);
 }
+
+template <typename T>
+void md_device_span_cuda<T>::stride(const int& i0,
+                                    const int& i1,
+                                    const int& is,
+                                    const int& j0,
+                                    const int& j1,
+                                    const int& js,
+                                    const T& beta,
+                                    const T* dx,
+                                    const int ugcw,
+                                    const T* u_,
+                                    const int& rgcw,
+                                    T* res_)
+{
+    const auto i = Ib{i0, i1, is};
+    const auto j = Jb{j0, j1, js};
+
+    auto u = make_md_span(u_, ugcw, i, j);
+    auto res = make_md_span(res_, rgcw, j, i);
+
+    with_domain(j, i)(res = beta * u);
+}
+
+template <typename T>
+void md_device_span_cuda<T>::stride(const int& i0,
+                                    const int& i1,
+                                    const int& is,
+                                    const int& j0,
+                                    const int& j1,
+                                    const int& js,
+                                    const int& k0,
+                                    const int& k1,
+                                    const int& ks,
+                                    const T& beta,
+                                    const T* dx,
+                                    const int ugcw,
+                                    const T* u_,
+                                    const int& rgcw,
+                                    T* res_)
+{
+    const auto i = Ib{i0, i1, is};
+    const auto j = Jb{j0, j1, js};
+    const auto k = Kb{k0, k1, ks};
+
+    auto u = make_md_span(u_, ugcw, i, j, k);
+    auto res = make_md_span(res_, rgcw, k, j, i);
+
+    with_domain(k, j, i)(res = beta * u);
+}
+
 
 template struct md_device_span_cuda<double>;

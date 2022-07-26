@@ -94,7 +94,8 @@ template <typename T>
 void window_test_cuda<T>::transform4(T* v_, int n, const T* u_)
 {
     assert(n == 20);
-    const auto i = Ib{1, 5};
+    //const auto i0 = Ib{1, 5, 2};
+    const auto i = Ib{1, 5, 1};
     const auto w = Wb{0, 3};
 
     auto v = make_md_span(v_, i, w);

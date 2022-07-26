@@ -22,6 +22,15 @@ __host__ __device__ T stride_dim(const T (&sz)[N])
     return t;
 }
 
+template <auto I, auto N, typename T>
+__host__ __device__ T stride_dim(const T (&sz)[N], const T(&stm)[N])
+{
+    T t{1};
+    for (int i = I + 1; i < N; i++) t *= sz[i];
+    return t * stm[I];
+}
+
+
 template <auto N, typename T>
 __host__ __device__ T stride_dim(const T (&sz)[N], int I)
 {
@@ -29,6 +38,7 @@ __host__ __device__ T stride_dim(const T (&sz)[N], int I)
     for (int i = I + 1; i < N; i++) t *= sz[i];
     return t;
 }
+
 
 // general utility for "raveling" an N-D coordinate into a single index assuming zero
 // based offset

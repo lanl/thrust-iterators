@@ -16,15 +16,19 @@ void submatrix_test_cuda<N, T>::init(T* v,
     int z = sz[0];
     for (int i = 1; i < N; i++) z *= sz[i];
     int n[N];
-    for (int i = 0; i < N; i++) n[i] = ub[i] - lb[i] + 1;
+    int stm[N];
+    for (int i = 0; i < N; i++) {
+        n[i] = ub[i] - lb[i] + 1;
+        stm[i] = 1;
+    }
 
     thrust::device_vector<T> x(v, v + z);
 
     {
-        auto s = make_submatrix(x.begin(), sz, lb, ub);
-//        s.print_current();
+        auto s = make_submatrix(x.begin(), sz, lb, ub, stm);
+        //        s.print_current();
         *s = -1;
-//        s.print_current();
+        //        s.print_current();
         assert(s[0] == -1);
         auto ss = s + 1;
 
@@ -39,40 +43,40 @@ void submatrix_test_cuda<N, T>::init(T* v,
         //      printf("ASSIGING AT THE EDGE\n");
         ss = s + n[N - 1] - 1;
         *ss = -3;
-        //ss.print_current();
+        // ss.print_current();
         assert(thrust::distance(s, ss) == n[N - 1] - 1);
         ++ss;
-        //ss.print_current();
+        // ss.print_current();
         *ss = -4;
         assert(thrust::distance(s, ss) == n[N - 1]);
-        //printf("DECREMENT OVER EDGE\n");
+        // printf("DECREMENT OVER EDGE\n");
         --ss;
-        //ss.print_current();
+        // ss.print_current();
         assert(*ss == -3);
         assert(thrust::distance(s, ss) == n[N - 1] - 1);
-        //ss.print_current();
+        // ss.print_current();
 
         // advance over stride boundary
-        //printf("CHECKING ADVANCE\n");
+        // printf("CHECKING ADVANCE\n");
         ss = s + n[N - 1];
-        //ss.print_current();
+        // ss.print_current();
         assert(*ss == -4);
         assert(thrust::distance(s, ss) == n[N - 1]);
 
         int subsize = n[0];
         for (int i = 1; i < N; i++) subsize *= n[i];
-        //printf("subsize: %d\n", subsize);
+        // printf("subsize: %d\n", subsize);
 
         ss = s + (subsize - 1);
-        //ss.print_current();
+        // ss.print_current();
         assert(thrust::distance(s, ss) == subsize - 1);
         *ss = -5;
         ++ss; // last
-        //ss.print_current();
+        // ss.print_current();
         assert(thrust::distance(s, ss) == subsize);
 
         ss = s + subsize; // last
-        //ss.print_current();
+        // ss.print_current();
         assert(thrust::distance(s, ss) == subsize);
 
         if constexpr (N == 3) {
@@ -101,10 +105,12 @@ void submatrix_test_cuda<N, T>::tabulate(T* v,
     for (int i = 0; i < N; i++) n[i] = ub[i] - lb[i] + 1;
     int n_sz = n[0];
     for (int i = 1; i < N; i++) n_sz *= n[i];
+    int stm[N];
+    for (int i = 0; i < N; i++) stm[i] = 1;
 
     thrust::device_vector<T> x(v, v + z);
 
-    auto s = make_submatrix(x.begin(), sz, lb, ub);
+    auto s = make_submatrix(x.begin(), sz, lb, ub, stm);
     thrust::tabulate(s, s + n_sz, thrust::negate<T>());
 
     thrust::copy(x.begin(), x.end(), v);
