@@ -34,7 +34,6 @@
 static constexpr auto up = mp::mp_int<1>{};
 static constexpr auto down = mp::mp_int<-1>{};
 
-
 //
 // After constructing bounds i,j,k using Ib,Jb,Kb, the user should be able to intuitively
 // describe the domain of the calculation with something like:
@@ -277,8 +276,11 @@ public:
 
         int lb_bnds[N] = {bnds.lb()...};
         int ub_bnds[N] = {bnds.ub()...};
+        int stm_bnds[N] = {bnds.stride...};
+
         int lb[] = {lb_bnds[map_index_v<index_list<O...>, Order>]...};
         int ub[] = {ub_bnds[map_index_v<index_list<O...>, Order>]...};
+        int stm[N] = {stm_bnds[map_index_v<index_list<O...>, Order>]...};
 
         int sz[N];
 
@@ -289,6 +291,7 @@ public:
         for (int i = sizeof...(O); i < N; i++) {
             lb[i] = b[i].lb();
             ub[i] = b[i].ub();
+            stm[i] = b[i].stride;
         }
 
         for (int i = 0; i < N; i++) {
@@ -298,7 +301,7 @@ public:
         }
 
         using Seq = transpose_sequence_t<index_list<Order...>, index_list<O...>>;
-        return detail::make_submatrix_helper<N>(Seq{}, begin(), sz, lb, ub);
+        return detail::make_submatrix_helper<N>(Seq{}, begin(), sz, lb, ub, stm);
     }
 
     template <auto... O>
@@ -308,8 +311,11 @@ public:
 
         int lb_bnds[] = {bnds.lb()...};
         int ub_bnds[] = {bnds.ub()...};
+        int stm_bnds[N] = {bnds.stride...};
+
         int lb[] = {lb_bnds[map_index_v<index_list<O...>, Order>]...};
         int ub[] = {ub_bnds[map_index_v<index_list<O...>, Order>]...};
+        int stm[] = {stm_bnds[map_index_v<index_list<O...>, Order>]...};
 
         int sz[N];
 
@@ -320,7 +326,7 @@ public:
         }
 
         using Seq = transpose_sequence_t<index_list<Order...>, index_list<O...>>;
-        return detail::make_submatrix_helper<N>(Seq{}, begin(), sz, lb, ub);
+        return detail::make_submatrix_helper<N>(Seq{}, begin(), sz, lb, ub, stm);
     }
 
     // call operator taking an int needs to return a function which takes the windowed
@@ -478,16 +484,15 @@ private:
 template <typename T, auto... Order>
 md_device_span<T, Order...> make_md_span(T* t, const lazy::dir_bounds<Order>&... bnds)
 {
-    return {t, bnds...};
+    return {t, bnds.unit_stride()...};
 }
 
 template <typename T, auto... Order>
 md_device_span<const T, Order...> make_md_span(const T* t,
                                                const lazy::dir_bounds<Order>&... bnds)
 {
-    return {t, bnds...};
+    return {t, bnds.unit_stride()...};
 }
-
 
 template <typename T, auto... Order>
 md_device_span<T, Order...>
@@ -495,7 +500,7 @@ make_md_span(T* t, int offset, const lazy::dir_bounds<Order>&... bnds)
 {
 
     // return {t, bnds.expand(offset)...};
-    return {t, detail::expand_bounds(offset, bnds)...};
+    return {t, detail::expand_bounds(offset, bnds.unit_stride())...};
 }
 
 template <typename T, auto... Order>
@@ -504,5 +509,5 @@ make_md_span(const T* t, int offset, const lazy::dir_bounds<Order>&... bnds)
 {
 
     // return {t, bnds.expand(offset)...};
-    return {t, detail::expand_bounds(offset, bnds)...};
+    return {t, detail::expand_bounds(offset, bnds.unit_stride())...};
 }

@@ -48,6 +48,13 @@ public:
             this->current[i] = start[i];
             this->n[i] = n[i];
         }
+
+        // printf("Creating a submatrix iterator with:\n");
+        // printf("\tStride: %i", stride[0]);
+        // for (int i = 1; i < N; i++) printf(" %i", stride[i]);
+        // printf("\n\tSize: %i", n[0]);
+        // for (int i = 1; i < N; i++) printf(" %i", n[i]);
+        // printf("\n");
     }
 
     __host__ __device__ int stride_dim(int i) const { return stride[i]; }

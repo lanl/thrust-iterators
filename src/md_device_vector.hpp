@@ -1,11 +1,13 @@
 #pragma once
 
 #include <algorithm>
+#include <type_traits>
 #include <vector>
 
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
+#include "cuda/matrix_utils.hpp"
 #include "cuda/md_bounds.hpp"
 
 #include "random.hpp"
@@ -43,16 +45,15 @@ public:
     const T* host_data() const
     {
         // assume that the purpose of getting a point is to change the data
-        //sync = false;
+        // sync = false;
         return h.data();
     }
 
     T* host_data()
     {
-        //sync = false;
+        // sync = false;
         return h.data();
     }
-
 
     const thrust::host_vector<T>& host()
     {
@@ -77,7 +78,22 @@ public:
         return u;
     }
 
+    template <typename... Args>
+    int index(Args... args) const
+    {
+        static_assert(sizeof...(Args) == N);
+        int c[] = {args...};
+        int sz[N];
+        for (int i = 0; i < N; i++) {
+            c[i] -= b[i].lb();
+            sz[i] = b[i].size();
+        }
+        return ravel<N>(sz, c);
+    }
+
     int size() const { return h.size(); }
+
+    int dim(int i) const { return b[i].size(); }
 
     void fill_random(T x0 = 0, T x1 = 1)
     {
@@ -108,8 +124,9 @@ md_device_vector<T, Order...> make_md_vec(int offset,
     return {detail::expand_bounds(offset, bnds)...};
 }
 
-template<typename T>
-std::vector<T> to_std(const thrust::device_vector<T>& a) {
+template <typename T>
+std::vector<T> to_std(const thrust::device_vector<T>& a)
+{
     std::vector<T> b(a.size());
     thrust::copy(a.begin(), a.end(), b.begin());
     return b;

@@ -14,8 +14,9 @@ window_helper(std::index_sequence<I...>, Iter it, const int (&sz)[N + 1])
     int stride[] = {stride_dim<I, N + 1>(sz)...};
     int current[] = {(0 * I)...};
     int n[] = {sz[I]...};
+    int stm[] = {(0 * I + 1)...};
 
-    return {it, stride, current, n};
+    return {it, stride, current, n, stm};
 }
 
 } // namespace detail

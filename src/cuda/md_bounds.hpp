@@ -1,10 +1,11 @@
 struct bounds {
     int first;
     int last;
+    int stride;
 
     bounds() = default;
-    constexpr bounds(int first, int last, bool inclusive = true)
-        : first{first}, last{last + inclusive}
+    constexpr bounds(int first, int last, int stride = 1, bool inclusive = true)
+        : first{first}, last{last + inclusive}, stride{stride}
     {
     }
 
@@ -43,7 +44,7 @@ struct bounds {
     int lb() const { return first; }
     int ub() const { return last - 1; }
 
-    int size() const { return last - first; }
+    int size() const { return (last - first) / stride; }
 };
 
 // Generally, the user will not be required to use anything in the `lazy` namespace
@@ -61,7 +62,10 @@ namespace lazy
 template <int I>
 struct dir_bounds : bounds {
     dir_bounds() = default;
-    constexpr dir_bounds(int f, int l, bool inclusive = true) : bounds(f, l, inclusive) {}
+    constexpr dir_bounds(int f, int l, int stride = 1, bool inclusive = true)
+        : bounds(f, l, stride, inclusive)
+    {
+    }
     constexpr dir_bounds(const bounds& bnd) : bounds(bnd) {}
 
     dir_bounds friend operator+(dir_bounds b, int x)
@@ -94,6 +98,13 @@ struct dir_bounds : bounds {
         dir_bounds b{*this};
         b.first += x;
         b.last += x;
+        return b;
+    }
+
+    dir_bounds unit_stride() const
+    {
+        dir_bounds b{*this};
+        b.stride = 1;
         return b;
     }
 };
@@ -133,4 +144,5 @@ auto bounds_sz(const lazy::dir_bounds<Order>&... bnds)
 {
     return (bnds.size() * ...);
 }
+
 } // namespace detail
