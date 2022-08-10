@@ -4,6 +4,7 @@
 
 #include "forward_stencil_iterator.hpp"
 #include "thrust/iterator/zip_iterator.h"
+#include <thrust/device_ptr.h>
 
 #include <thrust/functional.h>
 #include <thrust/iterator/transform_iterator.h>

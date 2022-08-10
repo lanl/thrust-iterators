@@ -1,8 +1,11 @@
 #pragma once
 
 #include "iter_math.hpp"
+#include "offset_iterator.hpp"
 #include "stencil_proxy.hpp"
 #include "thrust/for_each.h"
+#include "thrust/iterator/transform_iterator.h"
+#include "thrust/iterator/zip_iterator.h"
 #include "traits.hpp"
 
 #include <thrust/execution_policy.h>
@@ -98,6 +101,70 @@ make_gradient_transform(Vec&& vec, T h)
 }
 
 //
+// Computing dot products requires that we store the range of indicies and the pointer to
+// offsets.  We are here assuming that dot products are always done with "stencil" spans
+// (where W is the last dim) and offset_helpers.
+//
+// Note that we manually flip the order of the strides here to match the reversed order of
+// the offsets.  This is brittle and should be fixed at some point
+//
+template <int N>
+struct dot_impl {
+    int stride[N];
+    thrust::device_ptr<int> offsets;
+    int n;
+
+    template <typename U>
+    dot_impl(U&& u, thrust::device_ptr<int> o, int n) : offsets{o}, n{n}
+    {
+        for (int i = 0; i < N; i++) stride[N - 1 - i] = u.stride_dim(i);
+    }
+
+    template <typename Tp>
+    __host__ __device__ auto operator()(Tp&& tp) const
+    {
+        auto&& st = thrust::get<0>(tp);
+        auto&& it = thrust::get<1>(tp);
+        auto o = make_offset_iterator(FWD(it), stride, offsets);
+        using T = decltype(*st * *o);
+
+        T res{};
+
+        for (int i = 0; i < n; i++) res += st[i] * o[i];
+
+        return res;
+    }
+};
+
+template <typename U, typename V>
+struct dot_helper : iter_math<dot_helper<U, V>> {
+    U u;
+    V v;
+
+    dot_helper(U&& u, V&& v) : u{FWD(u)}, v{FWD(v)} {}
+
+    template <int... O>
+    auto operator()(dir_bounds<O>... bnds)
+    {
+        auto u_it = u(bnds...);
+        auto v_it = v(bnds...);
+
+        constexpr int N = sizeof...(O); // dims
+        thrust::device_ptr<int> o = v.o;
+        int n = std::get<N>(u.dir_bounds()).size();
+
+        return thrust::make_transform_iterator(thrust::make_zip_iterator(u_it, v_it),
+                                               dot_impl<N>{v_it, o, n});
+    }
+};
+
+template <typename U, typename V>
+dot_helper<U, V> make_dot_transform(U&& u, V&& v)
+{
+    return {FWD(u), FWD(v)};
+}
+
+//
 //
 //
 template <int Shift, int N, typename Vec>
@@ -150,6 +217,32 @@ auto make_coarse_transform(md_device_span<T, Order...>& v,
                            int ratio,
                            dir_bounds<O>... coarse_bnds)
 {
+}
+
+//
+// offset_helper's call operator will produce a
+// matrix_traversal_iterator.  It is the responsibility of whatever is
+// driving to form an offset iterator by saving the offset `o` and
+// creating an offset_iterator at each deref.  This seems wasteful
+//
+template <typename T>
+struct offset_helper : iter_math<offset_helper<T>> {
+    T t;
+    thrust::device_ptr<int> o;
+
+    offset_helper(T&& t, thrust::device_ptr<int> o) : t{FWD(t)}, o{o} {}
+
+    template <int... O>
+    constexpr auto operator()(dir_bounds<O>... bnds)
+    {
+        return t(std::bool_constant<true>{}, bnds...);
+    }
+};
+
+template <typename Vec>
+offset_helper<Vec> make_offset_transform(Vec&& v, thrust::device_ptr<int> o)
+{
+    return {FWD(v), o};
 }
 
 } // namespace lazy
@@ -267,66 +360,27 @@ public:
     template <auto... O>
     auto operator()(lazy::dir_bounds<O>... bnds)
     {
-        // static_assert(N == sizeof...(O));
-
-        // When the input bounds order `O` is different from the initialized order
-        // `Order`, we return a submatrix transpose iterator.  The first step is to put
-        // all the bounds data in the intialization order and then use the input bounds
-        // order `O` to form the transpose
-
-        int lb_bnds[N] = {bnds.lb()...};
-        int ub_bnds[N] = {bnds.ub()...};
-        int stm_bnds[N] = {bnds.stride...};
-
-        int lb[] = {lb_bnds[map_index_v<index_list<O...>, Order>]...};
-        int ub[] = {ub_bnds[map_index_v<index_list<O...>, Order>]...};
-        int stm[N] = {stm_bnds[map_index_v<index_list<O...>, Order>]...};
-
-        int sz[N];
-
-        // If N > sizeof...(O) we are in creating a window iterator over the specified
-        // domain.  In this situation, the last entry in lb/ub is zero and should be
-        // corrected to the window bounds to ensure proper creation in the
-        // submatrix_helper
-        for (int i = sizeof...(O); i < N; i++) {
-            lb[i] = b[i].lb();
-            ub[i] = b[i].ub();
-            stm[i] = b[i].stride;
-        }
-
-        for (int i = 0; i < N; i++) {
-            lb[i] -= b[i].lb();
-            ub[i] -= b[i].lb();
-            sz[i] = b[i].size();
-        }
-
-        using Seq = transpose_sequence_t<index_list<Order...>, index_list<O...>>;
-        return detail::make_submatrix_helper<N>(Seq{}, begin(), sz, lb, ub, stm);
+        return call_helper<false>(begin(), b, bnds...);
     }
 
     template <auto... O>
     auto operator()(lazy::dir_bounds<O>... bnds) const
     {
         static_assert(N == sizeof...(O));
+        return call_helper<false>(begin(), b, bnds...);
+    }
 
-        int lb_bnds[] = {bnds.lb()...};
-        int ub_bnds[] = {bnds.ub()...};
-        int stm_bnds[N] = {bnds.stride...};
+    template <bool B, auto... O>
+    auto operator()(std::bool_constant<B>, lazy::dir_bounds<O>... bnds)
+    {
+        return call_helper<B>(begin(), b, bnds...);
+    }
 
-        int lb[] = {lb_bnds[map_index_v<index_list<O...>, Order>]...};
-        int ub[] = {ub_bnds[map_index_v<index_list<O...>, Order>]...};
-        int stm[] = {stm_bnds[map_index_v<index_list<O...>, Order>]...};
-
-        int sz[N];
-
-        for (int i = 0; i < N; i++) {
-            lb[i] -= b[i].lb();
-            ub[i] -= b[i].lb();
-            sz[i] = b[i].size();
-        }
-
-        using Seq = transpose_sequence_t<index_list<Order...>, index_list<O...>>;
-        return detail::make_submatrix_helper<N>(Seq{}, begin(), sz, lb, ub, stm);
+    template <bool B, auto... O>
+    auto operator()(std::bool_constant<B>, lazy::dir_bounds<O>... bnds) const
+    {
+        static_assert(N == sizeof...(O));
+        return call_helper<B>(begin(), b, bnds...);
     }
 
     // call operator taking an int needs to return a function which takes the windowed
@@ -406,6 +460,18 @@ public:
         return lazy::make_shift_transform<lazy::dim::K>(shift_y(ys), zs);
     }
 
+    auto offset(thrust::device_ptr<int> o)
+    {
+        return lazy::make_offset_transform(*this, o);
+    }
+
+    template <typename U>
+    auto dot(U&& u)
+    {
+        // requires last(Order...) == W
+        return lazy::make_dot_transform(*this, FWD(u));
+    }
+
     __host__ __device__ auto size() const { return v.size(); }
 
     //
@@ -477,8 +543,47 @@ public:
     }
 
 private:
+    template <bool iter_flag, typename Iter, auto... O>
+    static auto call_helper(Iter it, const bounds (&b)[N], lazy::dir_bounds<O>... bnds)
+    {
+        // When the input bounds order `O` is different from the initialized order
+        // `Order`, we return a submatrix transpose iterator.  The first step is to put
+        // all the bounds data in the intialization order and then use the input bounds
+        // order `O` to form the transpose
+
+        int lb_bnds[N] = {bnds.lb()...};
+        int ub_bnds[N] = {bnds.ub()...};
+        int stm_bnds[N] = {bnds.stride...};
+
+        int lb[] = {lb_bnds[map_index_v<index_list<O...>, Order>]...};
+        int ub[] = {ub_bnds[map_index_v<index_list<O...>, Order>]...};
+        int stm[N] = {stm_bnds[map_index_v<index_list<O...>, Order>]...};
+
+        int sz[N];
+
+        // If N > sizeof...(O) we are in creating a window iterator over the specified
+        // domain.  In this situation, the last entry in lb/ub is zero and should be
+        // corrected to the window bounds to ensure proper creation in the
+        // submatrix_helper
+        for (int i = sizeof...(O); i < N; i++) {
+            lb[i] = b[i].lb();
+            ub[i] = b[i].ub();
+            stm[i] = b[i].stride;
+        }
+
+        for (int i = 0; i < N; i++) {
+            lb[i] -= b[i].lb();
+            ub[i] -= b[i].lb();
+            sz[i] = b[i].size();
+        }
+
+        using Seq = transpose_sequence_t<index_list<Order...>, index_list<O...>>;
+        return detail::make_submatrix_helper<N>(
+            Seq{}, it, sz, lb, ub, stm, std::bool_constant<iter_flag>{});
+    }
+
     thrust::device_ptr<T> v;
-    bounds b[N]; // std::array<bounds, N> b;
+    bounds b[N];
 };
 
 template <typename T, auto... Order>
@@ -510,4 +615,17 @@ make_md_span(const T* t, int offset, const lazy::dir_bounds<Order>&... bnds)
 
     // return {t, bnds.expand(offset)...};
     return {t, detail::expand_bounds(offset, bnds.unit_stride())...};
+}
+
+template <typename T>
+md_device_span<T, lazy::dim::W, lazy::dim::I> make_offset_span(T* t, int n, int dims)
+{
+    return {t, Wb{1, n}, Ib{1, dims}};
+}
+
+template <typename T>
+md_device_span<const T, lazy::dim::W, lazy::dim::I>
+make_offset_span(const T* t, int n, int dims)
+{
+    return {t, Wb{0, n - 1}, Ib{0, dims - 1}};
 }

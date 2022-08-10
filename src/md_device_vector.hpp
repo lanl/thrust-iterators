@@ -103,6 +103,18 @@ public:
         sync = true;
     }
 
+    template <typename... Args>
+    void set_offset(int n, Args&&... args)
+    {
+        static constexpr int sz = sizeof...(Args);
+        assert(sz == b[N-1].size());
+
+        int idx[] = {args...};
+        for (int i = 0; i < sz; i++) h[n * sz + i] = idx[i];
+
+        d = h;
+    }
+
 private:
     thrust::host_vector<T> h;
     thrust::device_vector<T> d;
@@ -122,6 +134,11 @@ md_device_vector<T, Order...> make_md_vec(int offset,
 {
 
     return {detail::expand_bounds(offset, bnds)...};
+}
+
+inline md_device_vector<int, lazy::dim::W, lazy::dim::I> make_offset_vec(int n, int dims)
+{
+    return {Wb{0, n - 1}, Ib{0, dims - 1}};
 }
 
 template <typename T>

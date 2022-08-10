@@ -1,17 +1,19 @@
 #pragma once
 
 #include "matrix_traversal_iterator.hpp"
+#include <type_traits>
 #include <utility>
 
 namespace detail
 {
-template <auto N, typename Iter, size_t... I>
+template <auto N, typename Iter, size_t... I, typename T = std::false_type>
 auto make_submatrix_helper(std::index_sequence<I...>,
                            Iter it,
                            const int (&sz)[N],
                            const int (&lb)[N],
                            const int (&ub)[N],
-                           const int (&stm)[N])
+                           const int (&stm)[N],
+                           T t = {})
 {
 
 
@@ -19,16 +21,7 @@ auto make_submatrix_helper(std::index_sequence<I...>,
     int n[] = {((ub[I] - lb[I] + stm[I]) / stm[I])...};
     int stride[] = {stride_dim<I, N>(sz, stm)...};
 
-    // printf("submatrix helper with\n");
-    // printf("\tsz\t%i", sz[0]);
-    // for (int i = 1; i < N; i++) printf("\t%i", sz[i]);
-    // printf("\n\tstm\t%i", stm[0]);
-    // for (int i = 1; i < N; i++) printf("\t%i", stm[i]);
-    // printf("\n\tstride\t%i", stride[0]);
-    // for (int i = 1; i < sizeof...(I); i++) printf("\t%i", stride[i]);
-    // printf("\n");
-
-    if constexpr (N > sizeof...(I)) {
+    if constexpr (N > sizeof...(I) || std::is_same_v<T, std::true_type>) {
 
         return matrix_traversal_iterator<Iter, sizeof...(I), Iter, Iter>{
             it + ravel<N>(sz, lb), stride, current, n};
