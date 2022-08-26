@@ -100,22 +100,6 @@ public:
         return make_forward_stencil(*this, stride, limit, sz);
     }
 
-    // __host__ __device__ auto istencil() { return stencil(N - 1); }
-    // __host__ __device__ auto jstencil() { return stencil(N - 2); }
-    // __host__ __device__ auto kstencil() { return stencil(N - 3); }
-    // // The baseline format is c-ordering of 0, 1, 2
-    // template <auto... I>
-    // __host__ __device__ auto transpose()
-    // {
-    //     return make_transpose<I...>(*this, n);
-    // }
-
-    // // permutes from 0, 1 -> 1, 0
-    // __host__ __device__ auto ij() { return this->transpose<1, 0>(); }
-
-    // __host__ __device__ auto ikj() { return this->transpose<2, 0, 1>(); }
-    // __host__ __device__ auto jik() { return this->transpose<1, 2, 0>(); }
-
 private:
     friend class thrust::iterator_core_access;
     template <typename, auto, typename, typename>
