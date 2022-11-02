@@ -1,15 +1,15 @@
-\\ Copyright (c) 2022. Triad National Security, LLC. All rights reserved.
-\\ This program was produced under U.S. Government contract
-\\ 89233218CNA000001 for Los Alamos National Laboratory (LANL), which is
-\\ operated by Triad National Security, LLC for the U.S. Department of
-\\ Energy/National Nuclear Security Administration. All rights in the
-\\ program are reserved by Triad National Security, LLC, and the
-\\ U.S. Department of Energy/National Nuclear Security
-\\ Administration. The Government is granted for itself and others acting
-\\ on its behalf a nonexclusive, paid-up, irrevocable worldwide license
-\\ in this material to reproduce, prepare derivative works, distribute
-\\ copies to the public, perform publicly and display publicly, and to
-\\ permit others to do so.
+// Copyright (c) 2022. Triad National Security, LLC. All rights reserved.
+// This program was produced under U.S. Government contract
+// 89233218CNA000001 for Los Alamos National Laboratory (LANL), which is
+// operated by Triad National Security, LLC for the U.S. Department of
+// Energy/National Nuclear Security Administration. All rights in the
+// program are reserved by Triad National Security, LLC, and the
+// U.S. Department of Energy/National Nuclear Security
+// Administration. The Government is granted for itself and others acting
+// on its behalf a nonexclusive, paid-up, irrevocable worldwide license
+// in this material to reproduce, prepare derivative works, distribute
+// copies to the public, perform publicly and display publicly, and to
+// permit others to do so.
 
 
 #pragma once
@@ -63,12 +63,12 @@ public:
             this->n[i] = n[i];
         }
 
-        // printf("Creating a submatrix iterator with:\n");
-        // printf("\tStride: %i", stride[0]);
+        // printf("Creating a submatrix iterator with://n");
+        // printf("//tStride: %i", stride[0]);
         // for (int i = 1; i < N; i++) printf(" %i", stride[i]);
-        // printf("\n\tSize: %i", n[0]);
+        // printf("//n//tSize: %i", n[0]);
         // for (int i = 1; i < N; i++) printf(" %i", n[i]);
-        // printf("\n");
+        // printf("//n");
     }
 
     __host__ __device__ int stride_dim(int i) const { return stride[i]; }
@@ -126,7 +126,7 @@ private:
     __host__ __device__ void increment()
     {
         // trying to avoid division and branching here
-        // printf("incrementing..\n");
+        // printf("incrementing..//n");
         // print_current();
 
         int f = 1;
@@ -134,12 +134,12 @@ private:
             int a = !(n[i] - 1 - current[i]); // will be 1 if this dimension is full
             int b = 1 - a * n[i];             // maps to 1 or -(n-1)
             int shift = f * b;
-            // printf("a\t'%d'\tb\t'%d'\tshift\t'%d'\tf\t'%d'\n", a, b, shift, f);
+            // printf("a//t'%d'//tb//t'%d'//tshift//t'%d'//tf//t'%d'//n", a, b, shift, f);
             current[i] += shift;
             // if we shifted by 1 then were done
             f *= !!(shift - 1);
         }
-        // printf("before 'last' check f=%d\n", f);
+        // printf("before 'last' check f=%d//n", f);
         // print_current();
         //  if f is still 1 here then have incremented to the "last" position
         for (int i = 0; i < N - 1; i++) current[i] += f * (n[i] - 1);
@@ -148,7 +148,7 @@ private:
 
     __host__ __device__ void decrement()
     {
-        // printf("decrementing..\n");
+        // printf("decrementing..//n");
         // print_current();
         //  trying to avoid division and branching here
         int f = 1;
@@ -156,7 +156,7 @@ private:
             int a = !(current[i]); // will be 1 if this dimension is empty
             int b = -1 + a * n[i]; // maps to -1 or +(n-1)
             int shift = f * b;
-            // printf("a\t'%d'\tb\t'%d'\tshift\t'%d'\tf\t'%d'\n", a, b, shift, f);
+            // printf("a//t'%d'//tb//t'%d'//tshift//t'%d'//tf//t'%d'//n", a, b, shift, f);
             current[i] += shift;
             // if we shifted by -1 then were done
             f *= !!(shift + 1);
@@ -166,7 +166,7 @@ private:
     __host__ __device__ void advance(diff_t dist)
     {
         dist += ravel<N>(n, current);
-        // printf("distance %ld\n", dist);
+        // printf("distance %ld//n", dist);
         unravel<N>(n, dist, current);
     }
 

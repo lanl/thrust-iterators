@@ -1,15 +1,15 @@
-\\ Copyright (c) 2022. Triad National Security, LLC. All rights reserved.
-\\ This program was produced under U.S. Government contract
-\\ 89233218CNA000001 for Los Alamos National Laboratory (LANL), which is
-\\ operated by Triad National Security, LLC for the U.S. Department of
-\\ Energy/National Nuclear Security Administration. All rights in the
-\\ program are reserved by Triad National Security, LLC, and the
-\\ U.S. Department of Energy/National Nuclear Security
-\\ Administration. The Government is granted for itself and others acting
-\\ on its behalf a nonexclusive, paid-up, irrevocable worldwide license
-\\ in this material to reproduce, prepare derivative works, distribute
-\\ copies to the public, perform publicly and display publicly, and to
-\\ permit others to do so.
+// Copyright (c) 2022. Triad National Security, LLC. All rights reserved.
+// This program was produced under U.S. Government contract
+// 89233218CNA000001 for Los Alamos National Laboratory (LANL), which is
+// operated by Triad National Security, LLC for the U.S. Department of
+// Energy/National Nuclear Security Administration. All rights in the
+// program are reserved by Triad National Security, LLC, and the
+// U.S. Department of Energy/National Nuclear Security
+// Administration. The Government is granted for itself and others acting
+// on its behalf a nonexclusive, paid-up, irrevocable worldwide license
+// in this material to reproduce, prepare derivative works, distribute
+// copies to the public, perform publicly and display publicly, and to
+// permit others to do so.
 
 
 #include "../cd_correct_bc_1d_cuda.hpp"
@@ -60,11 +60,14 @@ void cd_correct_bc_1d_cuda<T>::set_bc(const int& i0,
             return;
         case 4:
             if (exOrder == 1) {
-                with_domain(FWD(p)...)(u = ((4 * d - h) / (4 * d + h)) * u1);
+                with_domain(FWD(p)...)(
+                    u = ((2 * alpha * d - h * beta) / (2 * alpha * d + h * beta)) * u1);
                 u.copy_to(u_);
             } else if (exOrder == 2) {
-                with_domain(FWD(p)...)(u = ((16 * d - 6 * h) / ((16 * d + 3 * h))) * u1 +
-                                           h / ((16 * d + 3 * h)) * u2);
+                with_domain(FWD(p)...)(u = ((8 * alpha * d - 6 * beta * h) /
+                                            ((8 * alpha * d + 3 * beta * h))) *
+                                               u1 +
+                                           h / ((8 * alpha * d + 3 * beta * h)) * u2);
                 u.copy_to(u_);
             }
             return;

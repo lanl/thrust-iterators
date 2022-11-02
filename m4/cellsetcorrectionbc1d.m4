@@ -88,13 +88,15 @@ c  Will do linear extrapolation
             u(ilo-1) = u(ilo)
          else if ( bdryType .eq. ROBIN ) then
             if( extrapOrder .eq. 1) then
-               factor=(4.0*d0(ilo)-h)/(4.0*d0(ilo)+h)
-               u(ilo-1)=factor*u(ilo)
+              factor=(2.0*alpha*d0(ilo)-h*beta)
+	      factor=factor/(2.0*alpha*d0(ilo)+h*beta)
+              u(ilo-1)=factor*u(ilo)
             else if ( extrapOrder .eq. 2) then
-               b=d0(ilo)
-               coeff(1)=(16.0*b-6.0*h)/(16.0*b+3.0*h)
-               coeff(2)=h/(16.0*b+3.0*h)
-               u(ilo-1)=coeff(1)*u(ilo)+coeff(2)*u(ilo+1)
+              b=d0(ilo)
+              coeff(1)=8.0*alpha*b-6.0*beta*h
+	      coeff(1)=coeff(1)/(8.0*alpha*b+3.0*beta*h)
+              coeff(2)=h/(8.0*alpha*b+3.0*beta*h)
+              u(ilo-1)=coeff(1)*u(ilo)+coeff(2)*u(ilo+1)
             endif
          end if
          
@@ -112,13 +114,14 @@ c  Will do linear extrapolation
             u(ihi+1) = u(ihi)
          else if ( bdryType .eq. ROBIN ) then
             if( extrapOrder .eq. 1) then
-               factor=(4.0*d0(ihi+1)-h)/(4.0*d0(ihi+1)+h)
-               u(ihi+1)=factor*u(ihi)
+              factor=(2.0*alpha*d0(ihi+1)-h*beta)
+	      factor=factor/(2.0*alpha*d0(ihi+1)+h*beta)
+              u(ihi+1)=factor*u(ihi)
             else if ( extrapOrder .eq. 2) then
-               b=d0(ihi+1)
-               coeff(1)=(16.0*b-6.0*h)/(3.0*h+16.0*b)
-               coeff(2)=h/(3.0*h+16.0*b)
-               u(ihi+1)=coeff(1)*u(ihi)+coeff(2)*u(ihi-1)
+              b=d0(ihi+1)
+              coeff(1)=(8.0*alpha*b-6.0*beta*h)/(8.0*alpha*b+3.0*beta*h)
+              coeff(2)=h/(8.0*alpha*b+3.0*beta*h)
+              u(ihi+1)=coeff(1)*u(ihi)+coeff(2)*u(ihi-1)
             endif
          end if
       end if

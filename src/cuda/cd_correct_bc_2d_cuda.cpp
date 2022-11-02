@@ -1,15 +1,15 @@
-\\ Copyright (c) 2022. Triad National Security, LLC. All rights reserved.
-\\ This program was produced under U.S. Government contract
-\\ 89233218CNA000001 for Los Alamos National Laboratory (LANL), which is
-\\ operated by Triad National Security, LLC for the U.S. Department of
-\\ Energy/National Nuclear Security Administration. All rights in the
-\\ program are reserved by Triad National Security, LLC, and the
-\\ U.S. Department of Energy/National Nuclear Security
-\\ Administration. The Government is granted for itself and others acting
-\\ on its behalf a nonexclusive, paid-up, irrevocable worldwide license
-\\ in this material to reproduce, prepare derivative works, distribute
-\\ copies to the public, perform publicly and display publicly, and to
-\\ permit others to do so.
+// Copyright (c) 2022. Triad National Security, LLC. All rights reserved.
+// This program was produced under U.S. Government contract
+// 89233218CNA000001 for Los Alamos National Laboratory (LANL), which is
+// operated by Triad National Security, LLC for the U.S. Department of
+// Energy/National Nuclear Security Administration. All rights in the
+// program are reserved by Triad National Security, LLC, and the
+// U.S. Department of Energy/National Nuclear Security
+// Administration. The Government is granted for itself and others acting
+// on its behalf a nonexclusive, paid-up, irrevocable worldwide license
+// in this material to reproduce, prepare derivative works, distribute
+// copies to the public, perform publicly and display publicly, and to
+// permit others to do so.
 
 
 #include "../cd_correct_bc_2d_cuda.hpp"
@@ -99,12 +99,11 @@ void cd_correct_bc_2d_cuda<T>::set_bc(const int& i0,
         case 1:
             t1(u.shift_x(-1), u.shift_x(-2), d0, dx[0], jb, ih);
             break;
-            /* btype == 4 for faces 2,3 is a no-op in the fortran kernel */
         case 2:
-            if (btype != 4) t1(u.shift_y(1), u.shift_y(2), d1.shift_y(1), dx[1], jl, ib);
+            t1(u.shift_y(1), u.shift_y(2), d1.shift_y(1), dx[1], jl, ib);
             break;
         case 3:
-            if (btype != 4) t1(u.shift_y(-1), u.shift_y(-2), d1, dx[1], jh, ib);
+            t1(u.shift_y(-1), u.shift_y(-2), d1, dx[1], jh, ib);
             break;
         }
         return;

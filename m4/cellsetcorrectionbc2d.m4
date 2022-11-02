@@ -187,6 +187,19 @@ c  Will do linear extrapolation
                   u(i,jlo-1) = u(i,jlo)
                end do
             else if ( bdryType .eq. ROBIN ) then
+               do i = ilo, ihi
+                  if( extrapOrder .eq. 1) then
+                     factor=(2.0d0*alpha*d1(jlo,i)-h*beta)
+                     factor=factor/(2.0d0*alpha*d1(jlo,i)+h*beta)
+                    u(i, jlo-1)=factor*u(i, jlo)
+                  else if ( extrapOrder .eq. 2) then
+                     b=d1(jlo, i)
+                     coeff(1) = 8.0d0*alpha*b-6.0d0*beta*h
+                     coeff(1) = coeff(1)/(8.0d0*alpha*b+3.0d0*beta*h)
+                     coeff(2) = h/(8.0d0*alpha*b+3.0d0*beta*h)
+                     u(i, jlo-1)=coeff(1)*u(i, jlo)+coeff(2)*u(i, jlo+1)
+                  endif
+               end do
             end if
 
          else if (face .eq. TOP) then
@@ -210,6 +223,19 @@ c  Will do linear extrapolation
                   u(i,jhi+1) = u(i,jhi)
                end do
             else if ( bdryType .eq. ROBIN ) then
+               do i = ilo, ihi
+                  if( extrapOrder .eq. 1) then
+                     factor=(2.0d0*alpha*d1(jhi+1,i)-h*beta)
+                     factor=factor/(2.0d0*alpha*d1(jhi+1,i)+h*beta)
+                     u(i, jhi+1)=factor*u(i, jhi)
+                  else if ( extrapOrder .eq. 2) then
+                     b=d1(jhi+1,i)
+                     coeff(1) = (8.0d0*alpha*b-6.0d0*beta*h)
+                     coeff(1) = coeff(1)/(8.0d0*alpha*b+3.0d0*beta*h)
+                     coeff(2) = h/(8.0d0*alpha*b+3.0d0*beta*h)
+                     u(i, jhi+1)=coeff(1)*u(i, jhi)+coeff(2)*u(i, jhi-1)
+                  endif
+               end do
             end if
 
          end if

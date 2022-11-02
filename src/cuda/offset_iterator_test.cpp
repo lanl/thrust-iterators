@@ -11,10 +11,10 @@ void offset_test_cuda<T, N>::init(T* v, int n_off, int* offset, const int (&dims
     int stride[N];
     stride_from_size(dims, stride);
 
-    // printf("offsets:\n %d", *offset);
+    // printf("offsets://n %d", *offset);
     // for (int i = 1; i < n_off; i++)
     //     printf(" %d", *(offset + i));
-    // printf("\n");
+    // printf("//n");
 
     auto o = make_offset_span(offset, n_off, N);
     auto u = thrust::device_ptr<T>(v);
